@@ -23,6 +23,22 @@ from urllib.parse import urlparse
 # 설정 섹션 (커스터마이징 가능)
 # ============================================================================
 
+def load_env():
+    """로컬 .env 파일이 있으면 환경변수로 로드 (GitHub에는 올라가지 않음)"""
+    env_path = Path(__file__).parent / ".env"
+    if env_path.exists():
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, value = line.split("=", 1)
+                    os.environ[key.strip()] = value.strip()
+        return True
+    return False
+
+# 스크립트 실행 시 즉시 .env 로드
+load_env()
+
 CONFIG = {
     # ActivityWatch API 연결 정보
     "api_host": "127.0.0.1",
