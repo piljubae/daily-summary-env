@@ -16,42 +16,22 @@ ActivityWatch 데이터를 기반으로 하루 활동을 자동으로 요약하�
 ### 1. 필수 패키지 설치
 
 ```bash
-pip install requests google-generativeai
+pip install requests google-genai
 ```
 
-### 2. Gemini API 키 설정
+### 2. 환경 설정 (API 키 및 슬랙 웹훅)
 
-**방법 1: 자동 설정 스크립트 사용 (권장)**
+**자동 설정 스크립트 사용 (권장)**
+
+이 스크립트를 실행하면 Gemini API 키와 Slack Webhook URL을 입력받아 `.env` 파일에 안전하게 저장합니다.
 
 ```bash
 ./setup_env.sh
 ```
 
-**방법 2: 수동 설정**
-
-1. https://aistudio.google.com/app/apikey 에서 API 키 발급
-2. `.env` 파일 생성:
-
-```bash
-cp .env.example .env
-# .env 파일을 열어서 API 키 입력
-```
-
-3. 환경변수 로드:
-
-```bash
-source .env
-```
-
-### 3. Slack Webhook 설정 (선택사항)
-
-`daily_summary.py` 파일에서 Slack Webhook URL 설정:
-
-```python
-"slack_webhook_url": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
-```
-
 ## 사용 방법
+
+스크립트를 실행할 때 같은 디렉토리에 있는 `.env` 파일을 자동으로 찾아 환경변수를 로드합니다. **따라서 매번 `source .env`를 할 필요가 없습니다.**
 
 ### 기본 사용 (어제 날짜)
 
@@ -82,20 +62,17 @@ python3 daily_summary.py --today
 
 ### 1. 마크다운 파일
 - 위치: `~/daily-summaries/YYYY-MM-DD-daily-summary.md`
-- 상세한 활동 내역 포함
+- 상세한 활동 내역 포함 및 파일 하단에 **AI 요약 (Gemini)** 섹션이 추가됩니다.
 
 ### 2. Slack DM (AI 요약)
-- Gemini AI가 생성한 5가지 핵심 활동
-- 관련 링크 포함
-- 원본 리포트 파일 경로 표시
+- 이제 전체 리포트 대신 **간결한 AI 요약(5가지 포인트)**만 슬랙으로 전송됩니다.
+- 슬랙 메시지 하단에 상세 리포트 파일 경로가 표시되어 바로 확인할 수 있습니다.
 
 ## 보안 주의사항
 
-⚠️ **중요**: `.env` 파일은 Git에 커밋되지 않도록 `.gitignore`에 추가되어 있습니다.
-
-- API 키는 절대 Git에 커밋하지 마세요
-- `.env.example`은 예시 파일이므로 실제 키를 입력하지 마세요
-- 환경변수 방식을 사용하는 것이 가장 안전합니다
+🔐 **Secrets Protection**: 기밀 정보(API Key, Webhook URL)는 코드에 하드코딩하지 않고 `.env` 파일에서 관리합니다.
+- `.env` 파일은 `.gitignore`에 등록되어 있어 GitHub에 업로드되지 않습니다.
+- 코드 내에서도 하드코딩된 시크릿이 모두 제거되어 안전하게 공유 혹은 공개 저장소에 올릴 수 있습니다.
 
 ## 자동화 설정
 
@@ -105,22 +82,6 @@ python3 daily_summary.py --today
 # crontab 편집
 crontab -e
 
-# 매일 오전 10시 5분에 실행
-5 10 * * * cd /Users/pilju.bae/daily-summary-env && source .env && python3 daily_summary.py
+# 매일 오전 10시 실행 (가상환경 python3 사용 시)
+0 10 * * * cd /Users/pilju.bae/daily-summary-env && ./venv/bin/python3 daily_summary.py --today
 ```
-
-## 문제 해결
-
-### "Gemini API 요약 실패" 오류
-- API 키가 올바르게 설정되었는지 확인
-- `echo $GEMINI_API_KEY`로 환경변수 확인
-- API 키 할당량 확인
-
-### "웹 활동 0개" 문제
-- ActivityWatch가 실행 중인지 확인
-- 웹 브라우저 확장 프로그램이 설치되어 있는지 확인
-
-### Git 저장소 없음
-- Antigravity 파일 추적은 Git 저장소가 필요합니다
-- `git init`으로 저장소 초기화 또는 작업 디렉토리 경로 수정
-# daily-summary-env
