@@ -8,6 +8,7 @@ ActivityWatch 데이터를 기반으로 하루 활동을 자동으로 요약하�
 - ✅ **웹 브라우징 추적**: 방문한 웹사이트와 페이지 타이틀 수집 (클릭 가능한 링크 포함)
 - ✅ **Claude 활동 요약**: 세션 제목, 작업 목표, 수정한 파일 목록
 - ✅ **Antigravity 파일 추적**: Git 이력 기반 파일 수정 목록
+- ✅ **Firebender (Android Studio)**: 안드로이드 스튜디오 AI 플러그인 사용 로그 및 질문 내역 추출
 - ✅ **AI 요약**: Gemini API로 5가지 핵심 활동 자동 요약
 - ✅ **Slack 전송**: AI 요약을 Slack DM으로 자동 전송
 
@@ -51,13 +52,6 @@ python3 daily_summary.py --today
 python3 daily_summary.py 20260210
 ```
 
-### 환경변수와 함께 실행
-
-```bash
-source .env
-python3 daily_summary.py --today
-```
-
 ## 출력 결과
 
 ### 1. 마크다운 파일
@@ -74,14 +68,22 @@ python3 daily_summary.py --today
 - `.env` 파일은 `.gitignore`에 등록되어 있어 GitHub에 업로드되지 않습니다.
 - 코드 내에서도 하드코딩된 시크릿이 모두 제거되어 안전하게 공유 혹은 공개 저장소에 올릴 수 있습니다.
 
-## 자동화 설정
+## 자동화 설정 (macOS launchd)
 
-매일 자동으로 실행하려면 cron job을 설정하세요:
+매일 오전 10시에 자동으로 실행되도록 `launchd`를 사용하여 설정할 수 있습니다.
+
+### 1. 설정 파일 등록
+이미 생성된 `com.piljubae.daily.summary.plist` 파일을 사용합니다.
 
 ```bash
-# crontab 편집
-crontab -e
+# 설정 파일을 macOS 서비스 디렉토리로 복사
+cp com.piljubae.daily.summary.plist ~/Library/LaunchAgents/
 
-# 매일 오전 10시 실행 (가상환경 python3 사용 시)
-0 10 * * * cd /Users/pilju.bae/daily-summary-env && ./venv/bin/python3 daily_summary.py --today
+# 서비스 로드 (자동 실행 활성화)
+launchctl load ~/Library/LaunchAgents/com.piljubae.daily.summary.plist
 ```
+
+### 2. 관리 명령어
+- **즉시 실행 테스트**: `launchctl start com.piljubae.daily.summary`
+- **자동 실행 중단**: `launchctl unload ~/Library/LaunchAgents/com.piljubae.daily.summary.plist`
+- **로그 확인**: `./automation.log` 파일에서 실행 이력을 확인할 수 있습니다.
