@@ -582,6 +582,52 @@ def calculate_active_time(app_durations, domain_durations):
     return total, dict(hourly_activity)
 
 
+def fetch_firebender_activity(target_date):
+    """지정된 날짜의 Firebender (Android Studio) 활동 추출"""
+    firebender_dir = Path.home() / ".firebender" / "message-dumps"
+    activity_data = []
+
+    if not firebender_dir.exists():
+        return activity_data
+
+    # 프로젝트별로 탐색
+    for project_dir in firebender_dir.iterdir():
+        if not project_dir.is_dir():
+            continue
+            
+        latest_dir = project_dir / "latest"
+        if not latest_dir.exists():
+            continue
+            
+        project_name = project_dir.name
+        
+        for md_file in latest_dir.glob("*.md"):
+            try:
+                # 파일 수정 시간으로 해당 날짜 활동인지 확인
+                mod_time = datetime.fromtimestamp(md_file.stat().st_mtime).date()
+                if mod_time != target_date.date():
+                    continue
+                
+                with open(md_file, "r", encoding="utf-8") as f:
+                    content = f.read()
+                    
+                # <user_query> 태그 내용 추출
+                queries = re.findall(r'<user_query>(.*?)</user_query>', content, re.DOTALL)
+                for query in queries:
+                    query_text = query.strip()
+                    if query_text:
+                        # 너무 긴 쿼리는 생략하거나 자르기
+                        display_query = query_text[:150] + "..." if len(query_text) > 150 else query_text
+                        activity_data.append({
+                            "project": project_name,
+                            "query": display_query
+                        })
+            except Exception:
+                continue
+                
+    return activity_data
+
+
 def generate_productivity_summary(hourly_activity):
     """생산성 시간대 요약 생성"""
     productive_time = 0
@@ -693,6 +739,23 @@ def create_markdown_report(app_durations, domain_durations, url_details, target_
             if not has_changes:
                 report += "- ⚠️ 파일 변경 사항 없음\n"
                 
+            report += "\n"
+
+    # 🤖 Firebender 활동 (Android Studio)
+    firebender_tasks = fetch_firebender_activity(target_date)
+    if firebender_tasks:
+        report += f"**🤖 Firebender (Android Studio)**\n"
+        # 프로젝트별로 그룹화하여 표시
+        by_project = defaultdict(list)
+        for t in firebender_tasks:
+            by_project[t["project"]].append(t["query"])
+            
+        for project, queries in by_project.items():
+            report += f"### 📂 {project}\n"
+            for q in queries[:10]: # 프로젝트별 상위 10개만
+                report += f"- {q}\n"
+            if len(queries) > 10:
+                report += f"- ...외 {len(queries) - 10}건\n"
             report += "\n"
 
     # 상세 활동 목록 (Detailed Lists)
