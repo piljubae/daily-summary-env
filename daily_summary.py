@@ -27,12 +27,21 @@ def load_env():
     """로컬 .env 파일이 있으면 환경변수로 로드 (GitHub에는 올라가지 않음)"""
     env_path = Path(__file__).parent / ".env"
     if env_path.exists():
+        loaded_count = 0
         with open(env_path, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if line and not line.startswith("#") and "=" in line:
                     key, value = line.split("=", 1)
-                    os.environ[key.strip()] = value.strip()
+                    key = key.strip()
+                    value = value.strip()
+                    # 따옴표 제거 (예: "value" -> value)
+                    if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
+                        value = value[1:-1]
+                    os.environ[key] = value
+                    loaded_count += 1
+        if loaded_count > 0:
+            print(f"✅ .env 파일에서 {loaded_count}개의 설정을 로드했습니다.")
         return True
     return False
 
@@ -813,7 +822,7 @@ def summarize_with_gemini(md_content, api_key):
             "Content-Type": "application/json"
         }
         
-        response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=30)
+        response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=60)
         response.raise_for_status()
         
         result = response.json()
@@ -909,7 +918,15 @@ def main():
         else:
             # AI 요약이 없으면 간단한 알림만 전송
             print("📤 요약 알림을 Slack으로 전송 중...")
-            alert_message = f"✅ *{target_date.strftime('%m/%d')}* 일일 리포트가 생성되었습니다.\n\n*위치*: `{filepath}`\n(Gemini API 키가 설정되지 않아 AI 요약은 생략되었습니다.)"
+            
+            if gemini_api_key:
+                # 키는 있는데 요약 생성에 실패한 경우
+                reason = "Gemini API 호출 중 오류가 발생했습니다. (로그 확인 필요)"
+            else:
+                # 키 자체가 없는 경우
+                reason = "Gemini API 키가 설정되지 않아 AI 요약은 생략되었습니다."
+                
+            alert_message = f"✅ *{target_date.strftime('%m/%d')}* 일일 리포트가 생성되었습니다.\n\n*위치*: `{filepath}`\n({reason})"
             if send_to_slack(alert_message):
                 print("✅ Slack 알림 전송 완료!")
             else:
