@@ -227,14 +227,26 @@ def create_markdown_report(app_durations, domain_durations, url_details, target_
 
     # 🤖 Antigravity 활동 (Self-Improvement)
     antigravity_data = fetch_antigravity_activity(target_date)
-    if antigravity_data and antigravity_data.get('files_modified'):
+    if antigravity_data and (antigravity_data.get('files_modified') or antigravity_data.get('commit_messages')):
          report += f"**🤖 Antigravity 활동 (Self-Improvement)**\n"
-         files = antigravity_data['files_modified']
-         report += f"- 🛠️ **수정된 파일** ({len(files)}개)\n"
-         for f in files[:10]:
-             report += f"  - `{f}`\n"
-         if len(files) > 10:
-             report += f"  - ...외 {len(files) - 10}개\n"
+         
+         # 커밋 메시지 (활동 내역)
+         commit_messages = antigravity_data.get('commit_messages', [])
+         if commit_messages:
+             report += f"- 📝 **활동 내역** ({len(commit_messages)}건)\n"
+             for msg in commit_messages[:5]:  # 최대 5개만 표시
+                 report += f"  - {msg}\n"
+             if len(commit_messages) > 5:
+                 report += f"  - ...외 {len(commit_messages) - 5}건\n"
+         
+         # 수정된 파일
+         files = antigravity_data.get('files_modified', [])
+         if files:
+             report += f"- 🛠️ **수정된 파일** ({len(files)}개)\n"
+             for f in files[:10]:
+                 report += f"  - `{f}`\n"
+             if len(files) > 10:
+                 report += f"  - ...외 {len(files) - 10}개\n"
          report += "\n"
 
     # 상세 활동 목록 (Detailed Lists)

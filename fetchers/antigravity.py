@@ -15,12 +15,14 @@ def fetch_antigravity_activity(target_date):
     until = end.strftime("%Y-%m-%d 23:59:59")
     
     files_modified = set()
+    commit_messages = []
     work_dirs = [Path.home() / "daily-summary-env"]
     
     for work_dir in work_dirs:
         if not work_dir.exists():
             continue
         try:
+            # 파일 변경 내역 추출
             result = subprocess.run(
                 ["git", "log", f"--since={since}", f"--until={until}", "--name-only", "--pretty=format:"],
                 cwd=str(work_dir), capture_output=True, text=True, timeout=5
@@ -30,7 +32,21 @@ def fetch_antigravity_activity(target_date):
                     line = line.strip()
                     if line and ('/' in line or '.' in line):
                         files_modified.add(line)
+            
+            # 커밋 메시지 추출 (질문/활동 내역)
+            msg_result = subprocess.run(
+                ["git", "log", f"--since={since}", f"--until={until}", "--pretty=format:%s"],
+                cwd=str(work_dir), capture_output=True, text=True, timeout=5
+            )
+            if msg_result.returncode == 0 and msg_result.stdout:
+                for msg in msg_result.stdout.strip().split('\n'):
+                    msg = msg.strip()
+                    if msg:
+                        commit_messages.append(msg)
         except Exception:
             continue
     
-    return {'files_modified': sorted(list(files_modified))[:20]}
+    return {
+        'files_modified': sorted(list(files_modified))[:20],
+        'commit_messages': commit_messages[:10]  # 최대 10개
+    }
