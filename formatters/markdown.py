@@ -227,8 +227,17 @@ def create_markdown_report(app_durations, domain_durations, url_details, target_
 
     # 🤖 Antigravity 활동 (Self-Improvement)
     antigravity_data = fetch_antigravity_activity(target_date)
-    if antigravity_data and (antigravity_data.get('files_modified') or antigravity_data.get('commit_messages')):
+    if antigravity_data and (antigravity_data.get('files_modified') or antigravity_data.get('commit_messages') or antigravity_data.get('user_queries')):
          report += f"**🤖 Antigravity 활동 (Self-Improvement)**\n"
+         
+         # AI 프롬프트 (사용자 질문)
+         user_queries = antigravity_data.get('user_queries', [])
+         if user_queries:
+             report += f"- 💬 **AI 프롬프트** ({len(user_queries)}건)\n"
+             for query in user_queries[:5]:  # 최대 5개만 표시
+                 report += f"  - {query}\n"
+             if len(user_queries) > 5:
+                 report += f"  - ...외 {len(user_queries) - 5}건\n"
          
          # 커밋 메시지 (활동 내역)
          commit_messages = antigravity_data.get('commit_messages', [])
