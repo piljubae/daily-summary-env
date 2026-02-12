@@ -648,14 +648,36 @@ def generate_one_liner(app_durations, domain_durations, total_time):
     app_name = top_app[0]
     duration = format_seconds(top_app[1])
 
-    if "chrome" in app_name.lower() or "firefox" in app_name.lower() or "safari" in app_name.lower():
-        return f"주로 웹 브라우징에 {duration} 시간을 사용했습니다."
-    elif "code" in app_name.lower() or "studio" in app_name.lower():
-        return f"개발 작업에 {duration}을 집중했습니다."
-    elif "slack" in app_name.lower() or "teams" in app_name.lower():
-        return f"커뮤니케이션 도구에 {duration}을 사용했습니다."
-    else:
-        return f"{app_name}에 가장 많은 시간({duration})을 사용했습니다."
+
+def fetch_antigravity_activity(target_date):
+    """해당 날짜의 Antigravity 활동 추출 (Git 이력 기반)"""
+    import subprocess
+    
+    start = target_date.replace(hour=0, minute=0, second=0)
+    end = start + timedelta(days=1)
+    since = start.strftime("%Y-%m-%d 00:00:00")
+    until = end.strftime("%Y-%m-%d 23:59:59")
+    
+    files_modified = set()
+    work_dirs = [Path.home() / "daily-summary-env"]
+    
+    for work_dir in work_dirs:
+        if not work_dir.exists():
+            continue
+        try:
+            result = subprocess.run(
+                ["git", "log", f"--since={since}", f"--until={until}", "--name-only", "--pretty=format:"],
+                cwd=str(work_dir), capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0 and result.stdout:
+                for line in result.stdout.strip().split('\n'):
+                    line = line.strip()
+                    if line and ('/' in line or '.' in line):
+                        files_modified.add(line)
+        except Exception:
+            continue
+    
+    return {'files_modified': sorted(list(files_modified))[:20]}
 
 
 def create_markdown_report(app_durations, domain_durations, url_details, target_date):
@@ -757,6 +779,19 @@ def create_markdown_report(app_durations, domain_durations, url_details, target_
             if len(queries) > 10:
                 report += f"- ...외 {len(queries) - 10}건\n"
             report += "\n"
+
+
+    # 🤖 Antigravity 활동 (Self-Improvement)
+    antigravity_data = fetch_antigravity_activity(target_date)
+    if antigravity_data and antigravity_data.get('files_modified'):
+         report += f"**🤖 Antigravity 활동 (Self-Improvement)**\n"
+         files = antigravity_data['files_modified']
+         report += f"- 🛠️ **수정된 파일** ({len(files)}개)\n"
+         for f in files[:10]:
+             report += f"  - `{f}`\n"
+         if len(files) > 10:
+             report += f"  - ...외 {len(files) - 10}개\n"
+         report += "\n"
 
     # 상세 활동 목록 (Detailed Lists)
     report += "---\n\n"
@@ -1018,35 +1053,5 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-
-def fetch_antigravity_activity(target_date):
-    """해당 날짜의 Antigravity 활동 추출 (Git 이력 기반)"""
-    import subprocess
-    
-    start = target_date.replace(hour=0, minute=0, second=0)
-    end = start + timedelta(days=1)
-    since = start.strftime("%Y-%m-%d 00:00:00")
-    until = end.strftime("%Y-%m-%d 23:59:59")
-    
-    files_modified = set()
-    work_dirs = [Path.home() / "daily-summary-env"]
-    
-    for work_dir in work_dirs:
-        if not work_dir.exists():
-            continue
-        try:
-            result = subprocess.run(
-                ["git", "log", f"--since={since}", f"--until={until}", "--name-only", "--pretty=format:"],
-                cwd=str(work_dir), capture_output=True, text=True, timeout=5
-            )
-            if result.returncode == 0 and result.stdout:
-                for line in result.stdout.strip().split('\n'):
-                    line = line.strip()
-                    if line and ('/' in line or '.' in line):
-                        files_modified.add(line)
-        except Exception:
-            continue
-    
-    return {'files_modified': sorted(list(files_modified))[:20]}
 
 
