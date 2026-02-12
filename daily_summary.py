@@ -813,7 +813,12 @@ def send_to_slack(markdown_content):
     slack_text = markdown_content
     
     # [텍스트](URL) -> <URL|텍스트> 변환 (Slack 형식)
-    slack_text = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<\2|\1>', slack_text)
+    # 괄호 사이 공백 허용 및 URL 매칭 개선
+    slack_text = re.sub(r'\[([^\]]+)\]\s*\(([^)]+)\)', r'<\2|\1>', slack_text)
+    
+    # Fallback: [Title](URL) 형식이 아니라 Title (URL) 형식으로 온 경우 (주로 AI 요약)
+    # 예: - 🔗 GitHub PR (https://...) -> - 🔗 <https://...|GitHub PR>
+    slack_text = re.sub(r'(🔗.*?)\s*\((https?://[^)]+)\)', r'<\2|\1>', slack_text)
     
     slack_text = re.sub(r'^# (.+)$', r'*\1*', slack_text, flags=re.MULTILINE)       # h1 → bold
     slack_text = re.sub(r'\*\*(.+?)\*\*', r'*\1*', slack_text)                       # **bold** → *bold*
@@ -859,19 +864,30 @@ def summarize_with_gemini(md_content, api_key):
         
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
         
-        prompt = f"""다음은 하루 동안의 활동 요약 리포트입니다. 이 내용을 읽고 **5가지 핵심 활동**으로 요약해주세요.
+        prompt = f"""다음은 하루 동안의 활동 요약 리포트입니다. 이 내용을 바탕으로 **5가지 핵심 활동**을 아래 형식에 맞춰 요약해주세요.
 
 요구사항:
-1. 각 항목은 한 문장으로 간결하게 작성
-2. 원본 리포트에 있는 중요한 링크는 반드시 포함 (마크다운 링크 형식 유지)
-3. 시간 정보가 있으면 포함
-4. 번호 매기기 (1. 2. 3. 4. 5.)
-5. 한국어로 작성
+1. **타이틀(Title)**: 활동의 핵심 내용을 명확하게 요약 (예: "로그인 페이지 UI 구현")
+2. **설명(Description)**: 구체적인 작업 내용, 성과, 또는 이슈 (한 문장)
+3. **관련 링크(Related Links)**: 해당 활동과 직접 관련된 URL (없으면 생략)
+4. **번호 매기기**: 1번부터 5번까지 중요도 순으로 나열
+5. **언어**: 한국어
+6. **링크 형식 필수 준수**: 반드시 `[링크 제목](URL)` 형식을 사용할 것. (예: `[GitHub PR](https://...)`)
+
+출력 형식 (반드시 준수):
+1. **[타이틀]**
+   [설명]
+   - 🔗 [링크 제목](URL)
+   - 🔗 [링크 제목](URL)
+
+2. **[타이틀]**
+   [설명]
+   ...
 
 리포트 내용:
 {md_content}
 
-5가지 핵심 활동:"""
+활동 요약:"""
 
         payload = {
             "contents": [{

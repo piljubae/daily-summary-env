@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# Daily Summary Wrapper Script
+# 가상환경을 자동으로 활성화하고 daily_summary.py를 실행합니다.
+# 
+# 사용법:
+#   ./daily-summary           # 어제 날짜
+#   ./daily-summary --today   # 오늘 날짜
+#   ./daily-summary 20260210  # 특정 날짜
+
+# 스크립트가 위치한 디렉토리로 이동
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# 가상환경 확인
+if [ ! -d "venv" ]; then
+    echo "❌ 가상환경을 찾을 수 없습니다."
+    echo "다음 명령어로 가상환경을 생성하세요:"
+    echo "  python3 -m venv venv"
+    echo "  source venv/bin/activate"
+    echo "  pip install requests google-genai"
+    exit 1
+fi
+
+# 가상환경의 Python으로 스크립트 실행 (모든 인자 전달)
+exec "$SCRIPT_DIR/venv/bin/python3" "$SCRIPT_DIR/daily_summary.py" "$@"

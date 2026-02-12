@@ -14,13 +14,42 @@ ActivityWatch 데이터를 기반으로 하루 활동을 자동으로 요약하�
 
 ## 설치 방법
 
-### 1. 필수 패키지 설치
+### 1. 가상환경 생성 및 패키지 설치
 
 ```bash
+# 가상환경 생성
+python3 -m venv venv
+
+# 가상환경 활성화
+source venv/bin/activate
+
+# 필수 패키지 설치
 pip install requests google-genai
+
+# 가상환경 비활성화 (설치 완료 후)
+deactivate
 ```
 
 ### 2. 환경 설정 (API 키 및 슬랙 웹훅)
+
+#### 2-1. Slack Webhook URL 발급
+
+Daily Summary를 Slack DM으로 받으려면 개인별 Webhook URL이 필요합니다.
+
+**옵션 1: 관리자에게 요청 (추천)**
+
+Daily Summary Bot을 통해 Webhook URL을 받고 싶으시면 다음 담당자에게 연락하세요:
+- @piljubae
+- @hyunkyoung-jung
+
+**옵션 2: 직접 생성**
+
+1. [Slack App Incoming Webhooks 페이지](https://api.slack.com/apps/A0AEVMBAN0G/incoming-webhooks) 접속
+2. "Add New Webhook to Workspace" 클릭
+3. 메시지를 받을 채널 선택 (본인 DM 또는 원하는 채널)
+4. 생성된 Webhook URL 복사 (예: `https://hooks.slack.com/services/...`)
+
+#### 2-2. 환경 변수 설정
 
 **자동 설정 스크립트 사용 (권장)**
 
@@ -30,26 +59,47 @@ pip install requests google-genai
 ./setup_env.sh
 ```
 
+**수동 설정**
+
+프로젝트 디렉토리에 `.env` 파일을 생성하고 다음 내용을 입력하세요:
+
+```bash
+GEMINI_API_KEY=your_gemini_api_key_here
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+```
+
 ## 사용 방법
 
-스크립트를 실행할 때 같은 디렉토리에 있는 `.env` 파일을 자동으로 찾아 환경변수를 로드합니다. **따라서 매번 `source .env`를 할 필요가 없습니다.**
+**가상환경 활성화 없이 바로 실행 가능합니다!** 
+
+`daily-summary` 래퍼 스크립트가 자동으로 가상환경을 활성화하고 실행합니다.
 
 ### 기본 사용 (어제 날짜)
 
 ```bash
-python3 daily_summary.py
+./daily-summary
 ```
 
 ### 오늘 날짜로 실행
 
 ```bash
-python3 daily_summary.py --today
+./daily-summary --today
 ```
 
 ### 특정 날짜 지정 (YYYYMMDD 형식)
 
 ```bash
-python3 daily_summary.py 20260210
+./daily-summary 20260210
+```
+
+### 기존 방식 (가상환경 수동 활성화)
+
+원한다면 여전히 기존 방식으로도 실행 가능합니다:
+
+```bash
+source venv/bin/activate
+python3 daily_summary.py
+deactivate
 ```
 
 ## 출력 결과
