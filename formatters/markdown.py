@@ -12,13 +12,7 @@ from urllib.parse import urlparse
 
 from config import CONFIG
 from utils import format_seconds
-from fetchers import (
-    fetch_cowork_sessions,
-    fetch_claude_context,
-    fetch_firebender_activity,
-    fetch_antigravity_activity,
-    fetch_calendar_events,
-)
+
 
 
 def categorize_apps(app_durations):
@@ -125,12 +119,25 @@ def generate_one_liner(app_durations, domain_durations, total_time):
         return f"{app_name}에 {duration} 시간을 사용했습니다."
 
 
-def create_markdown_report(app_durations, domain_durations, url_details, target_date):
-    """5줄 이내 핵심 요약 보고서 생성
+def create_markdown_report(data, target_date):
+    """수집된 모든 데이터를 마크다운 보고서로 변환합니다.
+
+    Args:
+        data (FetchedData): fetch_all()이 반환한 데이터 컨테이너
+        target_date (datetime): 요약 대상 날짜
 
     Returns:
-        str: 마크다운 형식의 간결한 보고서
+        str: 마크다운 형식의 보고서
     """
+    app_durations = data.app_durations
+    domain_durations = data.domain_durations
+    url_details = data.url_details
+    cowork_sessions = data.cowork_sessions
+    claude_context = data.claude_context
+    firebender_tasks = data.firebender_tasks
+    antigravity_data = data.antigravity_data
+    calendar_events = data.calendar_events
+
     total_time, _ = calculate_active_time(app_durations, domain_durations)
 
     report = f"# {target_date.strftime('%m/%d')} 일일 요약\n\n"
@@ -164,7 +171,6 @@ def create_markdown_report(app_durations, domain_durations, url_details, target_
         report += f"**🌐 사이트** — {' / '.join(site_parts)}\n\n"
 
     # 📅 미팅/일정 (macOS Calendar)
-    calendar_events = fetch_calendar_events(target_date)
     if calendar_events:
         report += f"**📅 미팅/일정** ({len(calendar_events)}건)\n"
         for ev in calendar_events:
@@ -174,7 +180,7 @@ def create_markdown_report(app_durations, domain_durations, url_details, target_
         report += "\n"
 
     # 3~4줄: Cowork 작업 요약 (의도 + 결과 + 참고 리소스)
-    cowork_tasks = fetch_cowork_sessions(target_date)
+    cowork_tasks = cowork_sessions
     if cowork_tasks:
         report += f"**🤖 Cowork** ({len(cowork_tasks)}건)\n"
         for task in cowork_tasks[:7]:
@@ -191,7 +197,6 @@ def create_markdown_report(app_durations, domain_durations, url_details, target_
         report += "\n"
 
     # 🤖 Claude 활동 (Local Agent)
-    claude_context = fetch_claude_context(target_date)
     if claude_context:
         report += f"**🤖 Claude 활동**\n"
         for session in claude_context:
@@ -219,7 +224,6 @@ def create_markdown_report(app_durations, domain_durations, url_details, target_
             report += "\n"
 
     # 🤖 Firebender 활동 (Android Studio)
-    firebender_tasks = fetch_firebender_activity(target_date)
     if firebender_tasks:
         report += f"**🤖 Firebender (Android Studio)**\n"
         # 프로젝트별로 그룹화하여 표시
@@ -237,7 +241,6 @@ def create_markdown_report(app_durations, domain_durations, url_details, target_
 
 
     # 🤖 Antigravity 활동 (Self-Improvement)
-    antigravity_data = fetch_antigravity_activity(target_date)
     if antigravity_data and (antigravity_data.get('files_modified') or antigravity_data.get('commit_messages') or antigravity_data.get('user_queries')):
          report += f"**🤖 Antigravity 활동 (Self-Improvement)**\n"
          
