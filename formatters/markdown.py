@@ -239,10 +239,9 @@ def create_markdown_report(data, target_date):
             
         for project, queries in by_project.items():
             report += f"### 📂 {project}\n"
-            for q in queries[:10]: # 프로젝트별 상위 10개만
+            for q in queries:
                 report += f"- {q}\n"
-            if len(queries) > 10:
-                report += f"- ...외 {len(queries) - 10}건\n"
+
             report += "\n"
     else:
         report += "- (데이터 없음)\n\n"
