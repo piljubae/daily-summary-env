@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 
 # Import configuration and utilities
 from config import CONFIG
-from utils import get_daterange
+from utils import get_daterange, is_holiday
 
 # Import data fetchers
 from fetchers import (
@@ -55,6 +55,13 @@ def main():
     else:
         target_date = datetime.now() - timedelta(days=1)
         date_label = "어제"
+
+    # 주말 / 한국 공휴일 체크 (날짜를 직접 지정한 경우에는 건너뜀)
+    if not args.date and is_holiday(target_date):
+        weekday_names = ["월", "화", "수", "목", "금", "토", "일"]
+        day_name = weekday_names[target_date.weekday()]
+        print(f"🗓️  {target_date.strftime('%Y-%m-%d')}({day_name})은 주말 또는 공휴일입니다 — 요약을 생략합니다.")
+        return 0
 
     start_iso, end_iso = get_daterange(target_date)
 
