@@ -17,6 +17,7 @@ from fetchers import (
     fetch_claude_context,
     fetch_firebender_activity,
     fetch_antigravity_activity,
+    fetch_calendar_events,
 )
 
 
@@ -161,6 +162,16 @@ def create_markdown_report(app_durations, domain_durations, url_details, target_
             else:
                 site_parts.append(f"{rank}. {domain}")
         report += f"**🌐 사이트** — {' / '.join(site_parts)}\n\n"
+
+    # 📅 미팅/일정 (macOS Calendar)
+    calendar_events = fetch_calendar_events(target_date)
+    if calendar_events:
+        report += f"**📅 미팅/일정** ({len(calendar_events)}건)\n"
+        for ev in calendar_events:
+            start_str = ev["start"].strftime("%H:%M")
+            end_str = ev["end"].strftime("%H:%M")
+            report += f"- {start_str}~{end_str} {ev['title']} ({ev['duration_min']}분)\n"
+        report += "\n"
 
     # 3~4줄: Cowork 작업 요약 (의도 + 결과 + 참고 리소스)
     cowork_tasks = fetch_cowork_sessions(target_date)
