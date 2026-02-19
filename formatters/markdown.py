@@ -137,6 +137,7 @@ def create_markdown_report(data, target_date):
     firebender_tasks = data.firebender_tasks
     antigravity_data = data.antigravity_data
     calendar_events = data.calendar_events
+    claude_cli_history = data.claude_cli_history
 
     total_time, _ = calculate_active_time(app_durations, domain_durations)
 
@@ -277,6 +278,17 @@ def create_markdown_report(data, target_date):
             if len(files) > 10:
                 report += f"  - ...외 {len(files) - 10}개\n"
     report += "\n"
+
+    # 🖥️ Claude CLI (터미널 기록)
+    if claude_cli_history:
+        report += "---\n\n"
+        report += f"## 🖥️ Claude CLI ({len(claude_cli_history)}건)\n\n"
+        for item in claude_cli_history:
+            timestamp = item['timestamp']
+            cmd = item['command']
+            time_str = timestamp.strftime("%H:%M:%S")
+            report += f"- `{time_str}` `{cmd}`\n"
+        report += "\n"
 
     # 상세 활동 목록 (Detailed Lists)
     report += "---\n\n"
