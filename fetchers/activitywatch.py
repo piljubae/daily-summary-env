@@ -40,6 +40,10 @@ def fetch_window_events(start_iso, end_iso):
         for event in events:
             if "data" in event and "app" in event["data"]:
                 app_name = event["data"]["app"]
+                # loginwindow는 자리비움(Lock Screen) 상태이므로 제외
+                if app_name.lower() == "loginwindow":
+                    continue
+
                 duration = event.get("duration", 0)
 
                 if duration > CONFIG["min_duration_seconds"]:
