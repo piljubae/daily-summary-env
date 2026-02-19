@@ -261,18 +261,14 @@ def create_markdown_report(data, target_date):
         # AI 프롬프트 (사용자 질문)
         if user_queries:
             report += f"- 💬 **AI 프롬프트** ({len(user_queries)}건)\n"
-            for query in user_queries[:5]:  # 최대 5개만 표시
+            for query in user_queries:
                 report += f"  - {query}\n"
-            if len(user_queries) > 5:
-                report += f"  - ...외 {len(user_queries) - 5}건\n"
 
         # 커밋 메시지 (활동 내역)
         if commit_messages:
             report += f"- 📝 **활동 내역** ({len(commit_messages)}건)\n"
-            for msg in commit_messages[:5]:  # 최대 5개만 표시
+            for msg in commit_messages:
                 report += f"  - {msg}\n"
-            if len(commit_messages) > 5:
-                report += f"  - ...외 {len(commit_messages) - 5}건\n"
 
         # 수정된 파일
         if files:
