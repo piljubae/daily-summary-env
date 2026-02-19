@@ -64,4 +64,17 @@ CONFIG = {
     # Gemini API Key (AI 요약용)
     # 빈 문자열이면 AI 요약 생략
     "gemini_api_key": "",  # 환경변수 GEMINI_API_KEY 또는 직접 입력
+
+    # macOS Calendar 설정
+    # 업무 캘린더 이름 목록 (macOS 캘린더 앱에 표시되는 이름)
+    # 비어있으면 최초 실행 시 사용자에게 선택을 요청하고 .env에 저장
+    "gcal_work_calendar_names": [],
+
+    # 반복(정규) 이벤트 기본 제외 여부
+    # True: 매일/매주 반복되는 정규 미팅 제외 (데일리스크럼 등)
+    "gcal_exclude_recurring": True,
+
+    # 반복 이벤트라도 포함할 이벤트 이름 키워드 (화이트리스트)
+    # 예: ["1:1", "주간OKR"] — 해당 키워드가 포함된 반복 미팅은 포함
+    "gcal_recurring_whitelist": [],
 }
