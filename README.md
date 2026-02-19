@@ -9,6 +9,7 @@ ActivityWatch 데이터를 기반으로 하루 활동을 자동으로 요약하�
 - ✅ **Claude 활동 요약**: 세션 제목, 작업 목표, 수정한 파일 목록
 - ✅ **Antigravity 파일 추적**: Git 이력 기반 파일 수정 목록
 - ✅ **Firebender (Android Studio)**: 안드로이드 스튜디오 AI 플러그인 사용 로그 및 질문 내역 추출
+- ✅ **캘린더 미팅 추가**: macOS 캘린더에서 당일 업무 미팅을 가져와 한 일 목록에 포함
 - ✅ **AI 요약**: Gemini API로 5가지 핵심 활동 자동 요약
 - ✅ **Slack 전송**: AI 요약을 Slack DM으로 자동 전송
 
@@ -25,6 +26,9 @@ source venv/bin/activate
 
 # 필수 패키지 설치
 pip install requests google-genai
+
+# macOS 캘린더 접근용 패키지
+pip install pyobjc-framework-EventKit
 
 # 가상환경 비활성화 (설치 완료 후)
 deactivate
@@ -67,6 +71,31 @@ Daily Summary Bot을 통해 Webhook URL을 받고 싶으시면 다음 담당자�
 GEMINI_API_KEY=your_gemini_api_key_here
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
 ```
+
+#### 2-3. macOS 캘린더 설정
+
+업무 미팅을 일일 요약에 포함하려면 **최초 1회** 아래 두 가지 설정이 필요합니다.
+
+**① macOS 캘린더 접근 권한 허용**
+
+시스템 설정 → **개인 정보 보호 및 보안** → **캘린더** → **Terminal** (또는 iTerm2) 항목 **ON**
+
+**② 업무 캘린더 선택 (최초 실행 시 자동 안내)**
+
+처음 실행하면 아래처럼 사용 가능한 캘린더 목록이 출력됩니다.
+번호를 선택하면 `.env`에 자동 저장되어 이후 실행부터는 묻지 않습니다.
+
+```
+📅 macOS에서 사용 가능한 캘린더 목록:
+  [1] 개인 캘린더
+  [2] 프로덕트앱개발  (pilju.bae@kurlycorp.com)
+  [3] pilju.bae@kurlycorp.com  (kurlycorp.com)
+
+번호 입력: 2,3
+✅ 캘린더 설정 저장됨: 프로덕트앱개발,pilju.bae@kurlycorp.com
+```
+
+> 설정을 변경하려면 `.env` 파일의 `GCAL_WORK_CALENDARS=` 값을 수정하거나 삭제 후 재실행하세요.
 
 ## 사용 방법
 

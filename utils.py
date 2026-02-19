@@ -67,11 +67,16 @@ def get_bucket_ids(bucket_type):
 
 
 def get_daterange(target_date):
-    """지정된 날짜의 시작과 끝 시간을 ISO 형식으로 반환"""
+    """지정된 날짜의 시작과 끝 시간을 KST ISO 형식으로 반환
+
+    ActivityWatch API는 timezone suffix가 없으면 UTC로 해석하므로
+    반드시 +09:00 suffix를 붙여야 KST 자정 기준으로 조회됩니다.
+    """
     start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
     end = start + timedelta(days=1)
 
-    return start.isoformat(), end.isoformat()
+    # KST = UTC+9, isoformat()은 naive datetime이므로 suffix 수동 추가
+    return start.strftime("%Y-%m-%dT%H:%M:%S+09:00"), end.strftime("%Y-%m-%dT%H:%M:%S+09:00")
 
 
 # ──────────────────────────────────────────────────────────────
