@@ -37,8 +37,8 @@ CONFIG = {
     "api_host": "127.0.0.1",
     "api_port": 5600,
 
-    # 출력 디렉토리 (기본값: 홈 디렉토리/daily-summaries/)
-    "output_dir": str(Path.home() / "daily-summaries"),
+    # 출력 디렉토리 (Claude Cowork 안에 저장)
+    "output_dir": str(Path.home() / "Documents" / "Claude Cowork" / "daily-summaries"),
 
     # 최소 표시 기간 (초 단위, 이보다 작은 활동은 제외)
     "min_duration_seconds": 10,
@@ -76,5 +76,12 @@ CONFIG = {
 
     # 반복 이벤트라도 포함할 이벤트 이름 키워드 (화이트리스트)
     # 예: ["1:1", "주간OKR"] — 해당 키워드가 포함된 반복 미팅은 포함
-    "gcal_recurring_whitelist": [],
+    "gcal_recurring_whitelist": ["1:1"],
+
+    # Jira 설정 (주간 요약에서 티켓 조회용)
+    # 빈 문자열이면 Jira 조회 생략
+    "jira_url": "",            # 환경변수 JIRA_URL 또는 직접 입력
+    "jira_email": "",          # 환경변수 JIRA_EMAIL 또는 직접 입력
+    "jira_api_token": "",      # 환경변수 JIRA_API_TOKEN 또는 직접 입력
+    "jira_project_key": "KMA", # 환경변수 JIRA_PROJECT_KEY 또는 직접 입력
 }
