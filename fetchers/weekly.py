@@ -187,15 +187,17 @@ def fetch_jira_tickets(week_start, week_end):
     }
 
     try:
+        search_url = f"{base_url}/rest/api/3/search/jql"
+
         # 1) 완료 티켓: 해당 기간에 "완료" 상태로 변경된 것
         completed_jql = (
             f'project = {project_key} AND '
             f'status changed to "완료" DURING ("{start_str}", "{end_str}")'
         )
-        resp = requests.get(
-            f"{base_url}/rest/api/3/search",
+        resp = requests.post(
+            search_url,
             headers=headers,
-            params={"jql": completed_jql, "maxResults": 50, "fields": "summary,status"},
+            json={"jql": completed_jql, "maxResults": 50, "fields": ["summary", "status"]},
             timeout=15,
         )
         resp.raise_for_status()
@@ -212,10 +214,10 @@ def fetch_jira_tickets(week_start, week_end):
             f'assignee = currentUser() AND '
             f'status NOT IN ("완료", "Done", "Closed", "CLOSE")'
         )
-        resp = requests.get(
-            f"{base_url}/rest/api/3/search",
+        resp = requests.post(
+            search_url,
             headers=headers,
-            params={"jql": active_jql, "maxResults": 50, "fields": "summary,status"},
+            json={"jql": active_jql, "maxResults": 50, "fields": ["summary", "status"]},
             timeout=15,
         )
         resp.raise_for_status()
