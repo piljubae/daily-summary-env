@@ -32,11 +32,14 @@ def _parse_active_minutes(line):
 
 
 def _parse_site_count(line):
-    """'**🌐 사이트** — 1. ... / 2. ... / 3. ...' 에서 사이트 순번 최대값을 세어 개수를 반환합니다."""
-    # 슬래시로 구분된 항목 수를 세거나 'N.' 패턴 최대값을 사용
-    numbers = re.findall(r'(\d+)\.', line)
-    if numbers:
-        return max(int(n) for n in numbers)
+    """'**🌐 사이트** — 1. ... / 2. ... / 3. ...' 에서 사이트 개수를 반환합니다."""
+    # '🌐 사이트' 뒤의 ' — ' 이후 부분에서 ' / ' 구분자 수 + 1로 개수 결정
+    m = re.search(r'🌐.*?—\s*(.+)', line)
+    if m:
+        entries = m.group(1).strip()
+        if not entries:
+            return 0
+        return entries.count(' / ') + 1
     return 0
 
 

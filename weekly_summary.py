@@ -125,6 +125,67 @@ def summarize_weekly_with_gemini(md_content, api_key):
         return None
 
 
+def _convert_weekly_for_slack(markdown_content):
+    """주간 보고서 마크다운을 Slack mrkdwn 형식으로 변환합니다.
+
+    Slack은 마크다운 테이블, blockquote(> )를 지원하지 않으므로
+    읽기 좋은 평문+mrkdwn 형식으로 변환합니다.
+    """
+    lines = markdown_content.splitlines()
+    result = []
+    table_headers = []
+    in_table = False
+
+    for line in lines:
+        stripped = line.strip()
+
+        # 테이블 구분선(|------|---...) 제거
+        if re.match(r'^\|[-| ]+\|$', stripped):
+            continue
+
+        # 테이블 헤더 행 → 컬럼 이름 저장
+        if stripped.startswith('|') and stripped.endswith('|') and not in_table:
+            cols = [c.strip() for c in stripped.strip('|').split('|')]
+            # 빈 헤더가 아닌지 확인
+            if any(c for c in cols):
+                table_headers = cols
+                in_table = True
+                continue
+
+        # 테이블 데이터 행 → "• col1: val1 | col2: val2" 형태
+        if stripped.startswith('|') and stripped.endswith('|') and in_table:
+            cols = [c.strip() for c in stripped.strip('|').split('|')]
+            if table_headers and len(cols) == len(table_headers):
+                # 첫 번째 컬럼을 키로, 나머지를 값으로
+                parts = []
+                for h, v in zip(table_headers, cols):
+                    if v and v != '-':
+                        parts.append(f"{h}: {v}")
+                result.append(f"  • {' | '.join(parts)}")
+            else:
+                result.append(f"  • {' | '.join(cols)}")
+            continue
+
+        # 테이블이 끝남
+        if in_table and not stripped.startswith('|'):
+            in_table = False
+            table_headers = []
+
+        # --- 수평선 → 빈 줄
+        if stripped == '---':
+            result.append('')
+            continue
+
+        # > blockquote → 일반 텍스트 (ℹ️는 유지)
+        if stripped.startswith('> '):
+            result.append(stripped[2:])
+            continue
+
+        result.append(line)
+
+    return '\n'.join(result)
+
+
 def main():
     """메인 함수"""
     parser = argparse.ArgumentParser(description="Weekly Summary Generator")
@@ -207,9 +268,10 @@ def main():
         week_number = week_start.isocalendar()[1]
         slack_header = (
             f"📊 *주간 요약 W{week_number:02d}이 생성되었습니다*\n"
-            f"📁 {filepath}\n\n"
+            f"📁 `{filepath}`\n\n"
         )
-        slack_message = slack_header + markdown_content
+        slack_body = _convert_weekly_for_slack(markdown_content)
+        slack_message = slack_header + slack_body
 
         print("📤 Slack으로 전송 중...")
         if send_to_slack(slack_message):
