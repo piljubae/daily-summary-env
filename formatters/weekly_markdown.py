@@ -72,6 +72,17 @@ def create_weekly_report(
             report += "- (진행 중인 티켓 없음)\n"
         report += "\n"
 
+        # 🔍 검토 (코드리뷰)
+        report += "### 🔍 검토 (코드리뷰)\n\n"
+        if jira_data["review"]:
+            report += "| 티켓 | 작업 내용 | 상태 |\n"
+            report += "|------|----------|------|\n"
+            for t in jira_data["review"]:
+                report += f"| {t['key']} | {t['summary']} | {t['status']} |\n"
+        else:
+            report += "- (검토 중인 티켓 없음)\n"
+        report += "\n"
+
         # ⏸️ 미착수
         report += "### ⏸️ 미착수 / 대기\n\n"
         if jira_data["todo"]:
@@ -127,13 +138,17 @@ def create_weekly_report(
     next_wn = next_week_start.isocalendar()[1]
     report += f"## 🎯 이번 주 할일 제안 (W{next_wn:02d}: {next_week_start.strftime('%m/%d')} ~ {next_week_end.strftime('%m/%d')})\n\n"
 
-    if jira_data.get("available") and (jira_data["in_progress"] or jira_data["todo"]):
-        # 🔴 높은 우선순위: 진행 중 티켓
+    if jira_data.get("available") and (jira_data["in_progress"] or jira_data["review"] or jira_data["todo"]):
+        # 🔴 높은 우선순위: 진행 중 + 검토 중 티켓
         report += "### 🔴 높은 우선순위\n\n"
         priority_num = 1
         for t in jira_data["in_progress"]:
             report += f"{priority_num}. **{t['key']} {t['summary']}**\n"
             report += f"   - 현재 상태: {t['status']}\n\n"
+            priority_num += 1
+        for t in jira_data["review"]:
+            report += f"{priority_num}. **{t['key']} {t['summary']}**\n"
+            report += f"   - 현재 상태: {t['status']} (코드리뷰)\n\n"
             priority_num += 1
 
         # 🟡 중간 우선순위: 미착수 티켓 앞쪽

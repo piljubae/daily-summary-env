@@ -229,6 +229,7 @@ def main():
     if jira_data["available"]:
         print(f"✅ Jira 티켓: 완료 {len(jira_data['completed'])}건, "
               f"진행중 {len(jira_data['in_progress'])}건, "
+              f"검토 {len(jira_data['review'])}건, "
               f"미착수 {len(jira_data['todo'])}건")
     else:
         print("ℹ️ Jira 미설정 — 데일리 요약 기반으로 보고서 생성")

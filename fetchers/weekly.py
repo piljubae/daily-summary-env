@@ -152,6 +152,7 @@ def fetch_jira_tickets(week_start, week_end):
         dict: {
             completed: [{ key, summary, status }],
             in_progress: [{ key, summary, status }],
+            review: [{ key, summary, status }],
             todo: [{ key, summary, status }],
             available: bool
         }
@@ -179,11 +180,16 @@ def fetch_jira_tickets(week_start, week_end):
 
     completed = []
     in_progress = []
+    review = []
     todo = []
 
     # 진행중 상태 목록
     IN_PROGRESS_STATUSES = {
-        "진행 중", "In Progress", "개발 중", "코드리뷰", "리뷰 대기", "In Review", "Testing"
+        "진행 중", "In Progress", "개발 중", "Testing"
+    }
+    # 검토(코드리뷰) 상태 목록
+    REVIEW_STATUSES = {
+        "검토", "코드리뷰", "리뷰 대기", "In Review"
     }
 
     try:
@@ -230,16 +236,19 @@ def fetch_jira_tickets(week_start, week_end):
             }
             if status_name in IN_PROGRESS_STATUSES:
                 in_progress.append(ticket)
+            elif status_name in REVIEW_STATUSES:
+                review.append(ticket)
             else:
                 todo.append(ticket)
 
     except Exception as e:
         print(f"⚠️ Jira API 조회 실패: {e}", file=sys.stderr)
-        return {"completed": [], "in_progress": [], "todo": [], "available": False}
+        return {"completed": [], "in_progress": [], "review": [], "todo": [], "available": False}
 
     return {
         "completed": completed,
         "in_progress": in_progress,
+        "review": review,
         "todo": todo,
         "available": True,
     }
