@@ -64,4 +64,15 @@ CONFIG = {
     # Gemini API Key (AI 요약용)
     # 빈 문자열이면 AI 요약 생략
     "gemini_api_key": "",  # 환경변수 GEMINI_API_KEY 또는 직접 입력
+
+    # Jira 설정 (할일 조회용)
+    "jira_url": os.environ.get("JIRA_URL", ""),
+    "jira_email": os.environ.get("JIRA_EMAIL", ""),
+    "jira_api_token": os.environ.get("JIRA_API_TOKEN", ""),
+    "jira_project_key": os.environ.get("JIRA_PROJECT_KEY", "KMA"),
+
+    # macOS Calendar 설정
+    "gcal_work_calendar_names": [n.strip() for n in os.environ.get("GCAL_WORK_CALENDARS", "").split(",") if n.strip()],
+    "gcal_exclude_recurring": True,
+    "gcal_recurring_whitelist": [],
 }

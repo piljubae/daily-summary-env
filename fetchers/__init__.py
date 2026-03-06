@@ -5,6 +5,8 @@ from .claude import fetch_claude_context
 from .cowork import fetch_cowork_sessions
 from .firebender import fetch_firebender_activity
 from .antigravity import fetch_antigravity_activity
+from .todo import fetch_today_todos
+from .calendar import fetch_calendar_events
 
 __all__ = [
     'fetch_window_events',
@@ -13,4 +15,6 @@ __all__ = [
     'fetch_cowork_sessions',
     'fetch_firebender_activity',
     'fetch_antigravity_activity',
+    'fetch_today_todos',
+    'fetch_calendar_events',
 ]

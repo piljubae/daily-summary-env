@@ -17,6 +17,8 @@ from fetchers import (
     fetch_claude_context,
     fetch_firebender_activity,
     fetch_antigravity_activity,
+    fetch_today_todos,
+    fetch_calendar_events,
 )
 
 
@@ -258,6 +260,30 @@ def create_markdown_report(app_durations, domain_durations, url_details, target_
                  report += f"  - ...외 {len(files) - 10}개\n"
          report += "\n"
 
+    # 📌 오늘의 할일 (Jira)
+    jira_todos = fetch_today_todos()
+    if jira_todos.get("available"):
+        total_count = len(jira_todos["in_progress"]) + len(jira_todos["review"]) + len(jira_todos["todo"])
+        if total_count > 0:
+            report += f"**📌 오늘의 할일** ({total_count}건)\n"
+            for ticket in jira_todos["in_progress"]:
+                report += f"- 🔵 [{ticket['key']}] {ticket['summary']} ({ticket['status']})\n"
+            for ticket in jira_todos["review"]:
+                report += f"- 🟡 [{ticket['key']}] {ticket['summary']} ({ticket['status']})\n"
+            for ticket in jira_todos["todo"]:
+                report += f"- ⚪ [{ticket['key']}] {ticket['summary']} ({ticket['status']})\n"
+            report += "\n"
+
+    # 📅 오늘 미팅
+    calendar_events = fetch_calendar_events(target_date)
+    if calendar_events:
+        report += f"**📅 오늘 미팅** ({len(calendar_events)}건)\n"
+        for event in calendar_events:
+            start_str = event["start"].strftime("%H:%M")
+            end_str = event["end"].strftime("%H:%M")
+            report += f"- {start_str}~{end_str} {event['title']} ({event['duration_min']}분)\n"
+        report += "\n"
+
     # 상세 활동 목록 (Detailed Lists)
     report += "---\n\n"
     report += "## 📋 상세 활동 목록\n\n"
@@ -322,7 +348,9 @@ def summarize_with_gemini(md_content, api_key):
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
         
-        prompt = f"""다음은 하루 동안의 활동 요약 리포트입니다. 이 내용을 바탕으로 **5가지 핵심 활동**을 아래 형식에 맞춰 요약해주세요.
+        prompt = f"""다음은 하루 동안의 활동 요약 리포트입니다. 이 내용을 바탕으로 두 파트로 나누어 요약해주세요.
+
+## 파트 1: 어제의 핵심 활동 (5가지)
 
 요구사항:
 1. **타이틀(Title)**: 활동의 핵심 내용을 명확하게 요약 (예: "로그인 페이지 UI 구현")
@@ -332,20 +360,35 @@ def summarize_with_gemini(md_content, api_key):
 5. **언어**: 한국어
 6. **링크 형식 필수 준수**: 반드시 `[링크 제목](URL)` 형식을 사용할 것. (예: `[GitHub PR](https://...)`)
 
+## 파트 2: 오늘의 할일 플랜
+
+리포트에 "📌 오늘의 할일" 섹션과 "📅 오늘 미팅" 섹션이 있다면, 이를 바탕으로 오늘의 우선순위 플랜을 3~5개 항목으로 제안해주세요.
+- 어제의 활동 맥락과 오늘의 Jira 티켓, 미팅 일정을 종합적으로 고려
+- 미팅 시간을 감안한 현실적인 작업 우선순위 제안
+- 해당 섹션이 없으면 이 파트는 생략
+
 출력 형식 (반드시 준수):
+
+**📊 어제의 핵심 활동**
+
 1. **[타이틀]**
    [설명]
-   - 🔗 [링크 제목](URL)
    - 🔗 [링크 제목](URL)
 
 2. **[타이틀]**
    [설명]
    ...
 
+**📌 오늘의 플랜**
+
+1. [우선순위 항목 + 간단한 이유]
+2. [우선순위 항목 + 간단한 이유]
+...
+
 리포트 내용:
 {md_content}
 
-활동 요약:"""
+요약:"""
 
         payload = {
             "contents": [{
