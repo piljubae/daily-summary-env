@@ -37,8 +37,8 @@ CONFIG = {
     "api_host": "127.0.0.1",
     "api_port": 5600,
 
-    # 출력 디렉토리 (기본값: 홈 디렉토리/daily-summaries/)
-    "output_dir": str(Path.home() / "daily-summaries"),
+    # 출력 디렉토리 (환경변수 OUTPUT_DIR 또는 기본값 ~/daily-summaries)
+    "output_dir": os.environ.get("OUTPUT_DIR", str(Path.home() / "daily-summaries")),
 
     # 최소 표시 기간 (초 단위, 이보다 작은 활동은 제외)
     "min_duration_seconds": 10,
