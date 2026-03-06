@@ -12,6 +12,31 @@ ActivityWatch 데이터를 기반으로 하루 활동을 자동으로 요약하�
 - ✅ **AI 요약**: Gemini API로 5가지 핵심 활동 자동 요약
 - ✅ **Slack 전송**: AI 요약을 Slack DM으로 자동 전송
 
+## 사전 준비 사항 (Prerequisites)
+
+### ActivityWatch 설치
+
+이 프로젝트는 [ActivityWatch](https://activitywatch.net/)가 로컬에서 실행 중이어야 합니다.
+
+1. [ActivityWatch 공식 사이트](https://activitywatch.net/)에서 macOS용 앱 다운로드 및 설치
+2. ActivityWatch 실행 후, 메뉴바에 아이콘이 표시되는지 확인
+3. `http://localhost:5600`에 접속하여 대시보드가 정상 로드되는지 확인
+
+### 브라우저 확장 프로그램 설치 (웹 활동 추적)
+
+웹 브라우징 활동을 추적하려면 **aw-watcher-web** 확장 프로그램이 필요합니다. 이 확장 프로그램이 없으면 웹 활동 데이터(`web.tab.current` 버킷)가 생성되지 않아 웹 브라우징 관련 요약이 누락됩니다.
+
+- **Chrome**: [ActivityWatch Web Watcher - Chrome 웹 스토어](https://chromewebstore.google.com/detail/activitywatch-web-watcher/nglaklhklhcoonedhgnpgddginnjdadi)
+- **Firefox**: [ActivityWatch Web Watcher - Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/aw-watcher-web/)
+
+설치 후 확인:
+1. 브라우저 툴바에서 ActivityWatch 아이콘 클릭 → 활성화 상태 확인
+2. `http://localhost:5600`의 Buckets 페이지에서 `aw-watcher-web-*` 버킷이 생성되었는지 확인
+
+> ⚠️ 확장 프로그램 설치 후 **브라우저를 재시작**해야 버킷이 생성될 수 있습니다.
+
+---
+
 ## 설치 방법
 
 ### 1. 가상환경 생성 및 패키지 설치
