@@ -15,6 +15,9 @@ from utils import format_seconds
 from fetchers import (
     fetch_today_todos,
     fetch_calendar_events,
+    extract_ticket_keys,
+    tag_yesterday_tickets,
+    score_and_group,
 )
 
 
@@ -293,19 +296,33 @@ def create_markdown_report(data, target_date):
             report += f"- `{time_str}` `{cmd}`\n"
         report += "\n"
 
-    # 📌 오늘의 할일 (Jira)
-    jira_todos = fetch_today_todos()
-    if jira_todos.get("available"):
-        total_count = len(jira_todos["in_progress"]) + len(jira_todos["review"]) + len(jira_todos["todo"])
+    # 📌 오늘의 할일 (Jira) — 액션 기반 그룹핑
+    raw_tickets = fetch_today_todos()
+    if raw_tickets:
+        yesterday_keys = extract_ticket_keys(data)
+        tagged_tickets = tag_yesterday_tickets(raw_tickets, yesterday_keys)
+        grouped = score_and_group(tagged_tickets)
+
+        total_count = len(grouped["urgent"]) + len(grouped["this_week"]) + len(grouped["backlog"])
         if total_count > 0:
-            report += f"**📌 오늘의 할일** ({total_count}건)\n"
-            for ticket in jira_todos["in_progress"]:
-                report += f"- 🔵 [{ticket['key']}] {ticket['summary']} ({ticket['status']})\n"
-            for ticket in jira_todos["review"]:
-                report += f"- 🟡 [{ticket['key']}] {ticket['summary']} ({ticket['status']})\n"
-            for ticket in jira_todos["todo"]:
-                report += f"- ⚪ [{ticket['key']}] {ticket['summary']} ({ticket['status']})\n"
-            report += "\n"
+            report += f"**📌 오늘의 할일** ({total_count}건)\n\n"
+
+            group_config = [
+                ("urgent", "🔴 오늘 집중"),
+                ("this_week", "🟡 이번주 내"),
+                ("backlog", "⚪ 백로그"),
+            ]
+            for group_key, group_label in group_config:
+                items = grouped[group_key]
+                if items:
+                    report += f"{group_label} ({len(items)}건)\n"
+                    for ticket in items:
+                        tags_str = ", ".join(ticket["tags"]) if ticket["tags"] else ""
+                        line = f"- [{ticket['key']}] {ticket['summary']}"
+                        if tags_str:
+                            line += f" — {tags_str}"
+                        report += line + "\n"
+                    report += "\n"
 
     # 📅 오늘 미팅
     calendar_events = fetch_calendar_events(target_date)
@@ -393,12 +410,19 @@ def summarize_with_gemini(md_content, api_key):
 5. **언어**: 한국어
 6. **링크 형식 필수 준수**: 반드시 `[링크 제목](URL)` 형식을 사용할 것. (예: `[GitHub PR](https://...)`)
 
-## 파트 2: 오늘의 할일 플랜
+## 파트 2: 오늘의 플랜
 
-리포트에 "📌 오늘의 할일" 섹션과 "📅 오늘 미팅" 섹션이 있다면, 이를 바탕으로 오늘의 우선순위 플랜을 3~5개 항목으로 제안해주세요.
-- 어제의 활동 맥락과 오늘의 Jira 티켓, 미팅 일정을 종합적으로 고려
-- 미팅 시간을 감안한 현실적인 작업 우선순위 제안
-- 해당 섹션이 없으면 이 파트는 생략
+리포트에 "📌 오늘의 할일" 섹션과 "📅 오늘 미팅" 섹션이 있다면, 이를 바탕으로 오늘 실제로 실행할 플랜을 3~5개 제안하라.
+
+### 우선순위 판단 기준 (반드시 적용):
+1. 🔴 오늘 집중 그룹 → 최우선. 마감/코멘트 응답 등 이유 명시
+2. 🔄어제이어서 태그가 붙은 티켓 → 연속성 유지 관점에서 우선 추천
+3. 미팅 전후 시간 활용 → 미팅 시간대를 피한 집중 작업 블록 제안
+4. 🟡 이번주 내 그룹 → 여유 시간에 착수 권장
+5. ⚪ 백로그 → 시간 남을 때만 언급
+6. "N일째" 수치가 큰 티켓은 장기화 → 마무리 가능하면 우선 완료 권장
+
+해당 섹션이 없으면 이 파트는 생략.
 
 출력 형식 (반드시 준수):
 
@@ -414,9 +438,25 @@ def summarize_with_gemini(md_content, api_key):
 
 **📌 오늘의 플랜**
 
-1. [우선순위 항목 + 간단한 이유]
-2. [우선순위 항목 + 간단한 이유]
+1. **[티켓번호 + 액션 동사]**
+   └ [근거 1줄: 왜 지금 해야 하는지]
+
+2. **[티켓번호 + 액션 동사]**
+   └ [근거 1줄]
+
+3. **[HH:MM 미팅명]** (N시간)
+
+4. **[티켓번호 + 액션 동사]**
+   └ [근거 1줄]
+
 ...
+
+주의사항:
+- 번호 + **볼드 타이틀** (티켓번호 + 액션 동사) 형식 필수
+- 다음 줄에 └ 근거 1줄 (왜 지금 해야 하는지)
+- 미팅은 시간과 소요시간만 간결하게 (근거 줄 불필요)
+- 단순 티켓 나열 금지. 반드시 "무엇을 할지" 액션 동사 포함 (예: ✗ "로그인 리팩토링" → ✓ "로그인 리팩토링 마무리")
+- 미팅이 있으면, 미팅 시간을 기준으로 작업 순서를 배치
 
 리포트 내용:
 {md_content}
