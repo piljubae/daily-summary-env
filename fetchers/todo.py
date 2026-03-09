@@ -101,7 +101,7 @@ def fetch_today_todos() -> list[dict]:
                 ),
                 "maxResults": 50,
                 "fields": ["summary", "status", "priority", "duedate", "updated", "comment"],
-                "expand": ["changelog"],
+                "expand": "changelog",
             },
             timeout=15,
         )
