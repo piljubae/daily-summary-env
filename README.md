@@ -11,7 +11,8 @@ ActivityWatch 데이터를 기반으로 하루 활동을 자동으로 요약하�
 - ✅ **Antigravity 파일 추적**: Git 이력 기반 파일 수정 목록
 - ✅ **Firebender (Android Studio)**: 안드로이드 스튜디오 AI 플러그인 사용 로그 및 질문 내역 추출
 - ✅ **캘린더 미팅 추가**: macOS 캘린더에서 당일 업무 미팅을 가져와 한 일 목록에 포함
-- ✅ **AI 요약**: Gemini API로 5가지 핵심 활동 자동 요약
+- ✅ **Jira 할일 추천**: 활성 티켓을 액션 기반 3그룹(🔴 오늘 집중 / 🟡 이번주 내 / ⚪ 백로그)으로 분류하고, 자동 태그(D-N, 📍우선순위, 💬코멘트, 💤방치, 🔄어제이어서, N일째) 부여
+- ✅ **AI 요약 + 오늘의 플랜**: Gemini API로 어제 핵심 활동 5가지 요약 + 우선순위 기반 오늘의 실행 플랜 제안
 - ✅ **Slack 전송**: AI 요약을 Slack DM으로 자동 전송
 
 ## 사전 준비 사항 (Prerequisites)
@@ -96,7 +97,15 @@ Daily Summary Bot을 통해 Webhook URL을 받고 싶으시면 다음 담당자�
 ```bash
 GEMINI_API_KEY=your_gemini_api_key_here
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+
+# Jira 할일 추천 (선택사항 — 없으면 할일 섹션 생략)
+JIRA_URL=https://your-domain.atlassian.net
+JIRA_EMAIL=your-email@company.com
+JIRA_API_TOKEN=your-jira-api-token
+JIRA_PROJECT_KEY=PROJECT
 ```
+
+> 💡 **Jira API Token 발급**: [Atlassian API Token 관리](https://id.atlassian.com/manage-profile/security/api-tokens)에서 생성할 수 있습니다.
 
 #### 2-3. macOS 캘린더 설정
 
@@ -160,12 +169,24 @@ deactivate
 ## 출력 결과
 
 ### 1. 마크다운 파일
-- 위치: `~/daily-summaries/YYYY-MM-DD-daily-summary.md`
+- 위치: `$OUTPUT_DIR/daily/YYYY-MM-DD-daily-summary.md` (기본값: `~/daily-summaries/daily/`)
 - 상세한 활동 내역 포함 및 파일 하단에 **AI 요약 (Gemini)** 섹션이 추가됩니다.
 
-### 2. Slack DM (AI 요약)
-- 이제 전체 리포트 대신 **간결한 AI 요약(5가지 포인트)**만 슬랙으로 전송됩니다.
-- 슬랙 메시지 하단에 상세 리포트 파일 경로가 표시되어 바로 확인할 수 있습니다.
+#### 📌 오늘의 할일 (Jira 연동 시)
+
+활성 티켓이 액션 기반 3그룹으로 자동 분류됩니다:
+
+| 그룹 | 조건 |
+|------|------|
+| 🔴 오늘 집중 | 마감 D-1 이내, High+진행중, 24시간 내 코멘트 |
+| 🟡 이번주 내 | 마감 D-2~5, 진행중·리뷰 상태 |
+| ⚪ 백로그 | 위 조건 미해당 |
+
+각 티켓에는 자동 태그가 붙습니다: `D-N` `📍High` `💬코멘트` `💤N일방치` `🔄어제이어서` `진행중 N일째`
+
+### 2. Slack DM (AI 요약 + 오늘의 플랜)
+- **📊 어제의 핵심 활동** — 5가지 핵심 포인트 요약
+- **📌 오늘의 플랜** — Jira 할일과 미팅을 종합한 우선순위 실행 플랜 (티켓번호 + 액션 동사 + 근거)
 
 ## 보안 주의사항
 
