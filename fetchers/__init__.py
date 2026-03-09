@@ -7,8 +7,10 @@ from .firebender import fetch_firebender_activity
 from .antigravity import fetch_antigravity_activity
 from .todo import fetch_today_todos
 from .calendar import fetch_calendar_events
+from .all import FetchedData, fetch_all
 
 __all__ = [
+    # 개별 fetcher (직접 사용이 필요한 경우)
     'fetch_window_events',
     'fetch_web_events',
     'fetch_claude_context',
@@ -17,4 +19,7 @@ __all__ = [
     'fetch_antigravity_activity',
     'fetch_today_todos',
     'fetch_calendar_events',
+    # 통합 인터페이스 (권장)
+    'FetchedData',
+    'fetch_all',
 ]

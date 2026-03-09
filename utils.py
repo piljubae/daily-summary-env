@@ -4,7 +4,7 @@
 
 import sys
 import requests
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from config import CONFIG
 
 
@@ -67,11 +67,16 @@ def get_bucket_ids(bucket_type):
 
 
 def get_daterange(target_date):
-    """지정된 날짜의 시작과 끝 시간을 ISO 형식으로 반환"""
+    """지정된 날짜의 시작과 끝 시간을 KST ISO 형식으로 반환
+
+    ActivityWatch API는 timezone suffix가 없으면 UTC로 해석하므로
+    반드시 +09:00 suffix를 붙여야 KST 자정 기준으로 조회됩니다.
+    """
     start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
     end = start + timedelta(days=1)
 
-    return start.isoformat(), end.isoformat()
+    # KST = UTC+9, isoformat()은 naive datetime이므로 suffix 수동 추가
+    return start.strftime("%Y-%m-%dT%H:%M:%S+09:00"), end.strftime("%Y-%m-%dT%H:%M:%S+09:00")
 
 
 # ──────────────────────────────────────────────────────────────
@@ -98,9 +103,9 @@ _KR_HOLIDAYS: dict[int, set[tuple[int, int]]] = {
     },
     2026: {
         (1, 1),   # 신정
-        (2, 17),  # 설날 연휴
-        (2, 18),  # 설날
-        (2, 19),  # 설날 연휴
+        (2, 16),  # 설날 연휴
+        (2, 17),  # 설날
+        (2, 18),  # 설날 연휴
         (3, 1),   # 삼일절
         (3, 2),   # 삼일절 대체공휴일
         (5, 5),   # 어린이날
@@ -116,6 +121,24 @@ _KR_HOLIDAYS: dict[int, set[tuple[int, int]]] = {
         (12, 25), # 크리스마스
     },
 }
+
+
+def get_last_workday(dt) -> datetime:
+    """주어진 날짜(datetime)의 직전 평일(공휴일 제외)을 반환합니다.
+
+    월요일에 호출하면 통상 금요일을 반환합니다.
+    금요일도 공휴일이면 목요일, 목요일도 공휴일이면 수요일… 을 반환합니다.
+
+    Args:
+        dt: datetime 또는 date 객체
+
+    Returns:
+        비공휴일·비주말인 직전 날짜 (datetime)
+    """
+    candidate = dt - timedelta(days=1)
+    while is_holiday(candidate):
+        candidate -= timedelta(days=1)
+    return candidate
 
 
 def is_holiday(dt) -> bool:

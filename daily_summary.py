@@ -14,14 +14,10 @@ from datetime import datetime, timedelta
 
 # Import configuration and utilities
 from config import CONFIG
-from utils import get_daterange, is_holiday
+from utils import get_daterange, get_last_workday, is_holiday
 
 # Import data fetchers
-from fetchers import (
-    fetch_window_events,
-    fetch_web_events,
-    fetch_cowork_sessions,
-)
+from fetchers import fetch_all
 
 # Import formatters
 from formatters import (
@@ -56,34 +52,50 @@ def main():
         target_date = datetime.now() - timedelta(days=1)
         date_label = "어제"
 
-    # 주말 / 한국 공휴일 체크 (날짜를 직접 지정한 경우에는 건너뜀)
-    if not args.date and is_holiday(target_date):
+    # 주말 / 한국 공휴일 / 월요일 처리 (날짜를 직접 지정한 경우에는 건너뜀)
+    if not args.date:
+        today = datetime.now()
         weekday_names = ["월", "화", "수", "목", "금", "토", "일"]
-        day_name = weekday_names[target_date.weekday()]
-        print(f"🗓️  {target_date.strftime('%Y-%m-%d')}({day_name})은 주말 또는 공휴일입니다 — 요약을 생략합니다.")
-        return 0
+
+        # 1. 오늘이 주말 또는 공휴일이면 skip
+        if is_holiday(today):
+            day_name = weekday_names[today.weekday()]
+            print(f"🗓️  오늘 {today.strftime('%Y-%m-%d')}({day_name})은 주말 또는 공휴일 — 요약을 생략합니다.")
+            return 0
+
+        # 2. 월요일이면 직전 평일(통상 금요일, 공휴일이면 더 거슬러 올라감)을 대상으로
+        if today.weekday() == 0:  # 월요일
+            target_date = get_last_workday(today)
+            day_name = weekday_names[target_date.weekday()]
+            date_label = f"직전 평일({target_date.strftime('%Y-%m-%d')}, {day_name})"
+        else:
+            target_date = today - timedelta(days=1)
+            date_label = "어제"
 
     start_iso, end_iso = get_daterange(target_date)
 
-    print(f"🔄 ActivityWatch {date_label}({target_date.strftime('%Y-%m-%d')}) 요약 생성 중...")
+    print(f"🔄 ActivityWatch {date_label} [{target_date.strftime('%Y-%m-%d')}] 요약 생성 중...")
     print(f"📍 API 연결: {CONFIG['api_host']}:{CONFIG['api_port']}")
 
-    # 데이터 조회
+    # 데이터 조회 — 모든 소스를 fetch_all() 한 번으로 수집
     print("📥 활동 데이터 조회 중...")
-    app_durations = fetch_window_events(start_iso, end_iso)
-    domain_durations, url_details = fetch_web_events(start_iso, end_iso)
+    data = fetch_all(target_date, start_iso, end_iso)
 
-    if not app_durations and not domain_durations:
+    if not data.app_durations and not data.domain_durations:
         print("⚠️ 조회된 활동 데이터가 없습니다.")
         print("   ActivityWatch가 실행 중인지 확인하세요.")
         return 1
 
-    cowork_count = len(fetch_cowork_sessions(target_date))
-    print(f"✅ 앱 활동 {len(app_durations)}개, 웹 활동 {len(domain_durations)}개, Cowork 요청 {cowork_count}건 조회됨")
+    print(f"✅ 앱 {len(data.app_durations)}개, 웹 {len(data.domain_durations)}개, "
+          f"Cowork {len(data.cowork_sessions)}건, Claude {len(data.claude_context)}건, "
+          f"Firebender {len(data.firebender_tasks)}건, "
+          f"Antigravity {len(data.antigravity_data.get('user_queries', []))}건, "
+          f"캘린더 {len(data.calendar_events)}건 조회됨")
 
     # 보고서 생성
     print("📝 마크다운 보고서 생성 중...")
-    markdown_content = create_markdown_report(app_durations, domain_durations, url_details, target_date)
+    markdown_content = create_markdown_report(data, target_date)
+
 
     # 파일 저장
     print("💾 파일 저장 중...")

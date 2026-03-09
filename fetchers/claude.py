@@ -123,3 +123,46 @@ def fetch_claude_context(target_date):
             continue
 
     return context_data
+
+
+def fetch_claude_cli_history(target_date):
+    """지정된 날짜의 Claude CLI 명령어 실행 이력을 추출"""
+    history_path = Path.home() / ".claude/history.jsonl"
+    cli_history = []
+
+    if not history_path.exists():
+        return cli_history
+
+    try:
+        with open(history_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                    timestamp = entry.get('timestamp')
+                    if not timestamp:
+                        continue
+
+                    # 타임스탬프가 밀리초 단위일 수 있음
+                    entry_date = datetime.fromtimestamp(timestamp / 1000)
+                    if entry_date.date() != target_date.date():
+                        continue
+                    
+                    display_cmd = entry.get('display', '')
+                    if not display_cmd:
+                        continue
+
+                    cli_history.append({
+                        'timestamp': entry_date,
+                        'command': display_cmd,
+                        'session_id': entry.get('sessionId')
+                    })
+                except Exception:
+                    continue
+
+        # 시간순 정렬
+        cli_history.sort(key=lambda x: x['timestamp'])
+
+    except Exception:
+        pass
+
+    return cli_history

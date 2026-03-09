@@ -13,10 +13,6 @@ from urllib.parse import urlparse
 from config import CONFIG
 from utils import format_seconds
 from fetchers import (
-    fetch_cowork_sessions,
-    fetch_claude_context,
-    fetch_firebender_activity,
-    fetch_antigravity_activity,
     fetch_today_todos,
     fetch_calendar_events,
 )
@@ -126,12 +122,26 @@ def generate_one_liner(app_durations, domain_durations, total_time):
         return f"{app_name}에 {duration} 시간을 사용했습니다."
 
 
-def create_markdown_report(app_durations, domain_durations, url_details, target_date):
-    """5줄 이내 핵심 요약 보고서 생성
+def create_markdown_report(data, target_date):
+    """수집된 모든 데이터를 마크다운 보고서로 변환합니다.
+
+    Args:
+        data (FetchedData): fetch_all()이 반환한 데이터 컨테이너
+        target_date (datetime): 요약 대상 날짜
 
     Returns:
-        str: 마크다운 형식의 간결한 보고서
+        str: 마크다운 형식의 보고서
     """
+    app_durations = data.app_durations
+    domain_durations = data.domain_durations
+    url_details = data.url_details
+    cowork_sessions = data.cowork_sessions
+    claude_context = data.claude_context
+    firebender_tasks = data.firebender_tasks
+    antigravity_data = data.antigravity_data
+    calendar_events = data.calendar_events
+    claude_cli_history = data.claude_cli_history
+
     total_time, _ = calculate_active_time(app_durations, domain_durations)
 
     report = f"# {target_date.strftime('%m/%d')} 일일 요약\n\n"
@@ -164,10 +174,21 @@ def create_markdown_report(app_durations, domain_durations, url_details, target_
                 site_parts.append(f"{rank}. {domain}")
         report += f"**🌐 사이트** — {' / '.join(site_parts)}\n\n"
 
+    # 📅 미팅/일정 (macOS Calendar)
+    report += f"**📅 미팅/일정** ({len(calendar_events)}건)\n" if calendar_events else "**📅 미팅/일정**\n"
+    if calendar_events:
+        for ev in calendar_events:
+            start_str = ev["start"].strftime("%H:%M")
+            end_str = ev["end"].strftime("%H:%M")
+            report += f"- {start_str}~{end_str} {ev['title']} ({ev['duration_min']}분)\n"
+    else:
+        report += "- (데이터 없음)\n"
+    report += "\n"
+
     # 3~4줄: Cowork 작업 요약 (의도 + 결과 + 참고 리소스)
-    cowork_tasks = fetch_cowork_sessions(target_date)
+    cowork_tasks = cowork_sessions
+    report += f"**🤖 Cowork** ({len(cowork_tasks)}건)\n" if cowork_tasks else "**🤖 Cowork**\n"
     if cowork_tasks:
-        report += f"**🤖 Cowork** ({len(cowork_tasks)}건)\n"
         for task in cowork_tasks[:7]:
             line = f"- {task['intent']}"
             if task["result"]:
@@ -179,12 +200,13 @@ def create_markdown_report(app_durations, domain_durations, url_details, target_
                 report += f"  📎 {', '.join(domains)}\n"
         if len(cowork_tasks) > 7:
             report += f"- ...외 {len(cowork_tasks) - 7}건\n"
-        report += "\n"
+    else:
+        report += "- (데이터 없음)\n"
+    report += "\n"
 
     # 🤖 Claude 활동 (Local Agent)
-    claude_context = fetch_claude_context(target_date)
+    report += f"**🤖 Claude 활동** ({len(claude_context)}건)\n" if claude_context else "**🤖 Claude 활동**\n"
     if claude_context:
-        report += f"**🤖 Claude 활동**\n"
         for session in claude_context:
             title = session.get('title', '세션')
             duration = session.get('duration_min', 0)
@@ -208,11 +230,12 @@ def create_markdown_report(app_durations, domain_durations, url_details, target_
                 report += "- ⚠️ 파일 변경 사항 없음\n"
                 
             report += "\n"
+    else:
+        report += "- (데이터 없음)\n\n"
 
     # 🤖 Firebender 활동 (Android Studio)
-    firebender_tasks = fetch_firebender_activity(target_date)
+    report += f"**🤖 Firebender (Android Studio)** ({len(firebender_tasks)}건)\n" if firebender_tasks else "**🤖 Firebender (Android Studio)**\n"
     if firebender_tasks:
-        report += f"**🤖 Firebender (Android Studio)**\n"
         # 프로젝트별로 그룹화하여 표시
         by_project = defaultdict(list)
         for t in firebender_tasks:
@@ -220,45 +243,55 @@ def create_markdown_report(app_durations, domain_durations, url_details, target_
             
         for project, queries in by_project.items():
             report += f"### 📂 {project}\n"
-            for q in queries[:10]: # 프로젝트별 상위 10개만
+            for q in queries:
                 report += f"- {q}\n"
-            if len(queries) > 10:
-                report += f"- ...외 {len(queries) - 10}건\n"
+
             report += "\n"
+    else:
+        report += "- (데이터 없음)\n\n"
 
 
     # 🤖 Antigravity 활동 (Self-Improvement)
-    antigravity_data = fetch_antigravity_activity(target_date)
-    if antigravity_data and (antigravity_data.get('files_modified') or antigravity_data.get('commit_messages') or antigravity_data.get('user_queries')):
-         report += f"**🤖 Antigravity 활동 (Self-Improvement)**\n"
-         
-         # AI 프롬프트 (사용자 질문)
-         user_queries = antigravity_data.get('user_queries', [])
-         if user_queries:
-             report += f"- 💬 **AI 프롬프트** ({len(user_queries)}건)\n"
-             for query in user_queries[:5]:  # 최대 5개만 표시
-                 report += f"  - {query}\n"
-             if len(user_queries) > 5:
-                 report += f"  - ...외 {len(user_queries) - 5}건\n"
-         
-         # 커밋 메시지 (활동 내역)
-         commit_messages = antigravity_data.get('commit_messages', [])
-         if commit_messages:
-             report += f"- 📝 **활동 내역** ({len(commit_messages)}건)\n"
-             for msg in commit_messages[:5]:  # 최대 5개만 표시
-                 report += f"  - {msg}\n"
-             if len(commit_messages) > 5:
-                 report += f"  - ...외 {len(commit_messages) - 5}건\n"
-         
-         # 수정된 파일
-         files = antigravity_data.get('files_modified', [])
-         if files:
-             report += f"- 🛠️ **수정된 파일** ({len(files)}개)\n"
-             for f in files[:10]:
-                 report += f"  - `{f}`\n"
-             if len(files) > 10:
-                 report += f"  - ...외 {len(files) - 10}개\n"
-         report += "\n"
+    report += "**🤖 Antigravity 활동 (Self-Improvement)**\n"
+    user_queries = antigravity_data.get('user_queries', []) if antigravity_data else []
+    commit_messages = antigravity_data.get('commit_messages', []) if antigravity_data else []
+    files = antigravity_data.get('files_modified', []) if antigravity_data else []
+    has_antigravity = bool(user_queries or commit_messages or files)
+
+    if not has_antigravity:
+        report += "- (데이터 없음)\n"
+    else:
+        # AI 프롬프트 (사용자 질문)
+        if user_queries:
+            report += f"- 💬 **AI 프롬프트** ({len(user_queries)}건)\n"
+            for query in user_queries:
+                report += f"  - {query}\n"
+
+        # 커밋 메시지 (활동 내역)
+        if commit_messages:
+            report += f"- 📝 **활동 내역** ({len(commit_messages)}건)\n"
+            for msg in commit_messages:
+                report += f"  - {msg}\n"
+
+        # 수정된 파일
+        if files:
+            report += f"- 🛠️ **수정된 파일** ({len(files)}개)\n"
+            for f in files[:10]:
+                report += f"  - `{f}`\n"
+            if len(files) > 10:
+                report += f"  - ...외 {len(files) - 10}개\n"
+    report += "\n"
+
+    # 🖥️ Claude CLI (터미널 기록)
+    if claude_cli_history:
+        report += "---\n\n"
+        report += f"## 🖥️ Claude CLI ({len(claude_cli_history)}건)\n\n"
+        for item in claude_cli_history:
+            timestamp = item['timestamp']
+            cmd = item['command']
+            time_str = timestamp.strftime("%H:%M:%S")
+            report += f"- `{time_str}` `{cmd}`\n"
+        report += "\n"
 
     # 📌 오늘의 할일 (Jira)
     jira_todos = fetch_today_todos()
