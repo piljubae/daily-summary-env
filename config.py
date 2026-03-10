@@ -65,10 +65,16 @@ CONFIG = {
     # 빈 문자열이면 AI 요약 생략
     "gemini_api_key": "",  # 환경변수 GEMINI_API_KEY 또는 직접 입력
 
+    # Jira 설정 (할일 조회용)
+    "jira_url": os.environ.get("JIRA_URL", ""),
+    "jira_email": os.environ.get("JIRA_EMAIL", ""),
+    "jira_api_token": os.environ.get("JIRA_API_TOKEN", ""),
+    "jira_project_key": os.environ.get("JIRA_PROJECT_KEY", "KMA"),
+
     # macOS Calendar 설정
     # 업무 캘린더 이름 목록 (macOS 캘린더 앱에 표시되는 이름)
     # 비어있으면 최초 실행 시 사용자에게 선택을 요청하고 .env에 저장
-    "gcal_work_calendar_names": [],
+    "gcal_work_calendar_names": [n.strip() for n in os.environ.get("GCAL_WORK_CALENDARS", "").split(",") if n.strip()],
 
     # 반복(정규) 이벤트 기본 제외 여부
     # True: 매일/매주 반복되는 정규 미팅 제외 (데일리스크럼 등)
