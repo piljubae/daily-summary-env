@@ -5,6 +5,7 @@
 import os
 import sys
 import json
+import time
 import requests
 from pathlib import Path
 from collections import defaultdict
@@ -395,20 +396,19 @@ def summarize_with_gemini(md_content, api_key):
     if not api_key:
         return None
     
-    try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
-        
-        prompt = f"""다음은 하루 동안의 활동 요약 리포트입니다. 이 내용을 바탕으로 두 파트로 나누어 요약해주세요.
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+
+    prompt = f"""다음은 하루 동안의 활동 요약 리포트입니다. 이 내용을 바탕으로 두 파트로 나누어 요약해주세요.
 
 ## 파트 1: 어제의 핵심 활동 (5가지)
 
 요구사항:
 1. **타이틀(Title)**: 활동의 핵심 내용을 명확하게 요약 (예: "로그인 페이지 UI 구현")
 2. **설명(Description)**: 구체적인 작업 내용, 성과, 또는 이슈 (한 문장)
-3. **관련 링크(Related Links)**: 해당 활동과 직접 관련된 URL (없으면 생략)
+3. **관련 링크(Related Links)**: 해당 활동과 관련된 GitHub PR, Jira 티켓, Confluence, Figma 등 작업 관련 URL을 **반드시 포함**할 것. 리포트 본문의 URL 목록, Claude CLI 히스토리, 웹 브라우징 기록에서 각 활동과 관련된 링크를 적극적으로 매칭하여 포함. 링크가 많으면 여러 개 나열해도 됨.
 4. **번호 매기기**: 1번부터 5번까지 중요도 순으로 나열
 5. **언어**: 한국어
-6. **링크 형식 필수 준수**: 반드시 `[링크 제목](URL)` 형식을 사용할 것. (예: `[GitHub PR](https://...)`)
+6. **링크 형식 필수 준수**: 반드시 `[링크 제목](URL)` 형식을 사용할 것. (예: `[GitHub PR #1234](https://...)`)
 
 ## 파트 2: 오늘의 플랜
 
@@ -463,24 +463,38 @@ def summarize_with_gemini(md_content, api_key):
 
 요약:"""
 
-        payload = {
-            "contents": [{
-                "parts": [{
-                    "text": prompt
-                }]
+    payload = {
+        "contents": [{
+            "parts": [{
+                "text": prompt
             }]
-        }
-        
-        headers = {
-            "Content-Type": "application/json"
-        }
-        
-        response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=60)
-        response.raise_for_status()
-        
-        result = response.json()
-        return result['candidates'][0]['content']['parts'][0]['text']
-        
-    except Exception as e:
-        print(f"⚠️ Gemini API 요약 실패: {e}", file=sys.stderr)
-        return None
+        }]
+    }
+
+    headers = {
+        "Content-Type": "application/json"
+    }
+
+    retry_delays = [10, 30, 60]
+    last_error = None
+    for attempt, delay in enumerate(retry_delays, start=1):
+        try:
+            response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=60)
+            response.raise_for_status()
+            result = response.json()
+            return result['candidates'][0]['content']['parts'][0]['text']
+        except requests.exceptions.HTTPError as e:
+            status = e.response.status_code if e.response is not None else None
+            if status in (429, 500, 503) and attempt < len(retry_delays) + 1:
+                print(f"⚠️ Gemini API {status} 오류 (시도 {attempt}/{len(retry_delays)}), {delay}초 후 재시도...", file=sys.stderr)
+                time.sleep(delay)
+                last_error = e
+            else:
+                last_error = e
+                break
+        except Exception as e:
+            last_error = e
+            break
+
+    print(f"⚠️ Gemini API 요약 실패: {last_error}", file=sys.stderr)
+    return None
