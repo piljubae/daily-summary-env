@@ -78,7 +78,7 @@ CONFIG = {
 
     # 반복(정규) 이벤트 기본 제외 여부
     # True: 매일/매주 반복되는 정규 미팅 제외 (데일리스크럼 등)
-    "gcal_exclude_recurring": True,
+    "gcal_exclude_recurring": os.environ.get("GCAL_EXCLUDE_RECURRING", "true").lower() != "false",
 
     # 반복 이벤트라도 포함할 이벤트 이름 키워드 (화이트리스트)
     # 예: ["1:1", "주간OKR"] — 해당 키워드가 포함된 반복 미팅은 포함
