@@ -58,10 +58,15 @@ def main():
 
     # 주말 / 한국 공휴일 체크 (날짜를 직접 지정한 경우에는 건너뜀)
     if not args.date and is_holiday(target_date):
+        # 직전 평일을 찾아서 요약 생성
+        candidate = target_date - timedelta(days=1)
+        while is_holiday(candidate):
+            candidate -= timedelta(days=1)
         weekday_names = ["월", "화", "수", "목", "금", "토", "일"]
-        day_name = weekday_names[target_date.weekday()]
-        print(f"🗓️  {target_date.strftime('%Y-%m-%d')}({day_name})은 주말 또는 공휴일입니다 — 요약을 생략합니다.")
-        return 0
+        day_name = weekday_names[candidate.weekday()]
+        print(f"🗓️  어제({target_date.strftime('%Y-%m-%d')})는 주말/공휴일 — 직전 평일({candidate.strftime('%Y-%m-%d')}, {day_name})로 대체합니다.")
+        target_date = candidate
+        date_label = f"직전 평일({candidate.strftime('%Y-%m-%d')}, {day_name})"
 
     start_iso, end_iso = get_daterange(target_date)
 
