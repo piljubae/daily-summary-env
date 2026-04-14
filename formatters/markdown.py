@@ -15,7 +15,6 @@ from config import CONFIG
 from utils import format_seconds
 from fetchers import (
     fetch_today_todos,
-    fetch_calendar_events,
     extract_ticket_keys,
     tag_yesterday_tickets,
     score_and_group,
@@ -178,8 +177,8 @@ def create_markdown_report(data, target_date):
                 site_parts.append(f"{rank}. {domain}")
         report += f"**🌐 사이트** — {' / '.join(site_parts)}\n\n"
 
-    # 📅 미팅/일정 (macOS Calendar)
-    report += f"**📅 미팅/일정** ({len(calendar_events)}건)\n" if calendar_events else "**📅 미팅/일정**\n"
+    # 📅 오늘 예정 미팅 (macOS Calendar)
+    report += f"**📅 오늘 예정 미팅** ({len(calendar_events)}건)\n" if calendar_events else "**📅 오늘 예정 미팅**\n"
     if calendar_events:
         for ev in calendar_events:
             start_str = ev["start"].strftime("%H:%M")
@@ -325,8 +324,7 @@ def create_markdown_report(data, target_date):
                         report += line + "\n"
                     report += "\n"
 
-    # 📅 오늘 미팅
-    calendar_events = fetch_calendar_events(target_date)
+    # 📅 오늘 미팅 (fetch_all에서 오늘 날짜로 가져온 data.calendar_events 재사용)
     if calendar_events:
         report += f"**📅 오늘 미팅** ({len(calendar_events)}건)\n"
         for event in calendar_events:
