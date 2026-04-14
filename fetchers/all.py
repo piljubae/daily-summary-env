@@ -72,7 +72,7 @@ def fetch_all(target_date: datetime, start_iso: str, end_iso: str) -> FetchedDat
         claude_context=fetch_claude_context(target_date),
         firebender_tasks=fetch_firebender_activity(target_date),
         antigravity_data=fetch_antigravity_activity(target_date),
-        calendar_events=fetch_calendar_events(target_date),
+        calendar_events=fetch_calendar_events(datetime.now()),
         claude_cli_history=fetch_claude_cli_history(target_date),
         # ── 여기에 새 fetcher 호출 추가 ─────────────────
     )
