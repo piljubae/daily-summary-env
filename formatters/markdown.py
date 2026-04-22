@@ -144,6 +144,7 @@ def create_markdown_report(data, target_date):
     antigravity_data = data.antigravity_data
     calendar_events = data.calendar_events
     claude_cli_history = data.claude_cli_history
+    slack_summary = data.slack_summary
 
     total_time, _ = calculate_active_time(app_durations, domain_durations)
 
@@ -187,6 +188,19 @@ def create_markdown_report(data, target_date):
     else:
         report += "- (데이터 없음)\n"
     report += "\n"
+
+    # 📬 Slack 주요 토픽
+    if slack_summary and slack_summary.get("topics"):
+        topic_count = len(slack_summary["topics"])
+        report += f"**📬 Slack 주요 토픽** ({topic_count}건)\n"
+        for line in slack_summary.get("focus_lines", []):
+            report += f"- {line}\n"
+        if not slack_summary.get("focus_lines"):
+            for t in slack_summary["topics"][:5]:
+                report += f"- {t['title']}\n"
+            if topic_count > 5:
+                report += f"- ...외 {topic_count - 5}건\n"
+        report += "\n"
 
     # 3~4줄: Cowork 작업 요약 (의도 + 결과 + 참고 리소스)
     cowork_tasks = cowork_sessions
@@ -389,12 +403,24 @@ def save_report(markdown_content, target_date):
     return filepath
 
 
-def summarize_with_gemini(md_content, api_key):
+def summarize_with_gemini(md_content, api_key, slack_context=""):
     """Gemini API를 사용하여 일일 요약을 5가지 핵심 포인트로 요약"""
     if not api_key:
         return None
     
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+
+    slack_block = ""
+    if slack_context:
+        slack_block = f"""
+
+## Slack 스레드 요약 (이번 주 주요 토픽)
+
+아래는 이번 주 Slack에서 논의된 주요 토픽의 상세 내용입니다.
+오늘의 플랜을 세울 때 이 맥락을 반영하세요 — 테스트 상태, 임박 일정, 액션 아이템 등.
+
+{slack_context}
+"""
 
     prompt = f"""다음은 하루 동안의 활동 요약 리포트입니다. 이 내용을 바탕으로 두 파트로 나누어 요약해주세요.
 
@@ -420,7 +446,7 @@ def summarize_with_gemini(md_content, api_key):
 5. ⚪ 백로그 → 시간 남을 때만 언급
 6. "N일째" 수치가 큰 티켓은 장기화 → 마무리 가능하면 우선 완료 권장
 
-해당 섹션이 없으면 이 파트는 생략.
+해당 섹션이 없으면 이 파트는 생략. 생략 시 별도 안내 문구 없이 조용히 생략할 것.
 
 출력 형식 (반드시 준수):
 
@@ -458,7 +484,7 @@ def summarize_with_gemini(md_content, api_key):
 
 리포트 내용:
 {md_content}
-
+{slack_block}
 요약:"""
 
     payload = {

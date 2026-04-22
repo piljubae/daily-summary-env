@@ -108,7 +108,8 @@ def main():
     
     if gemini_api_key:
         print("🤖 AI 요약 생성 중...")
-        ai_summary = summarize_with_gemini(markdown_content, gemini_api_key)
+        slack_text = data.slack_summary.get("full_text", "") if data.slack_summary else ""
+        ai_summary = summarize_with_gemini(markdown_content, gemini_api_key, slack_context=slack_text)
         
         if ai_summary:
             print("✅ AI 요약 생성 완료!")
