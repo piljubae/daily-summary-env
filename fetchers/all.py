@@ -21,6 +21,7 @@ from .claude import fetch_claude_context, fetch_claude_cli_history
 from .firebender import fetch_firebender_activity
 from .antigravity import fetch_antigravity_activity
 from .calendar import fetch_calendar_events
+from .slack_summary import fetch_slack_summary
 
 
 @dataclass
@@ -42,6 +43,8 @@ class FetchedData:
     antigravity_data: dict = field(default_factory=dict)
     calendar_events: list = field(default_factory=list)
     claude_cli_history: list = field(default_factory=list)
+
+    slack_summary: dict = field(default_factory=dict)
 
     # ── 여기에 새 필드 추가 ──────────────────────────────
 
@@ -74,5 +77,6 @@ def fetch_all(target_date: datetime, start_iso: str, end_iso: str) -> FetchedDat
         antigravity_data=fetch_antigravity_activity(target_date),
         calendar_events=fetch_calendar_events(datetime.now()),
         claude_cli_history=fetch_claude_cli_history(target_date),
+        slack_summary=fetch_slack_summary(),
         # ── 여기에 새 fetcher 호출 추가 ─────────────────
     )
