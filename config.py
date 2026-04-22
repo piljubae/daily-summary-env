@@ -88,4 +88,11 @@ CONFIG = {
     # 외부 자동화가 매일 오전 9시에 Slack 멘션 스레드 요약을 .md 파일로 생성
     # 빈 문자열이면 Slack 요약 섹션 생략
     "slack_summary_dir": os.environ.get("SLACK_SUMMARY_DIR", str(Path.home() / "Documents" / "Claude Cowork" / "Slack")),
+
+    # Slack API 설정 (직접 연동)
+    # search.messages는 User Token 필요 (Bot Token으로 불가)
+    "slack_user_token": os.environ.get("SLACK_USER_TOKEN", ""),
+    "slack_bot_token": os.environ.get("SLACK_BOT_TOKEN", ""),
+    # 모니터링할 채널 ID 목록 (콤마 구분)
+    "slack_watch_channels": [c.strip() for c in os.environ.get("SLACK_WATCH_CHANNELS", "").split(",") if c.strip()],
 }
