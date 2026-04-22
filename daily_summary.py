@@ -17,7 +17,7 @@ from config import CONFIG
 from utils import get_daterange, get_last_workday, is_holiday
 
 # Import data fetchers
-from fetchers import fetch_all
+from fetchers import fetch_all, fetch_slack_threads, summarize_slack_threads
 
 # Import formatters
 from formatters import (
@@ -76,6 +76,20 @@ def main():
 
     print(f"🔄 ActivityWatch {date_label} [{target_date.strftime('%Y-%m-%d')}] 요약 생성 중...")
     print(f"📍 API 연결: {CONFIG['api_host']}:{CONFIG['api_port']}")
+
+    # Slack API → .md 파일 업데이트 (fetch_all이 .md를 읽기 전에 실행)
+    slack_bot_token = CONFIG.get("slack_bot_token") or os.environ.get("SLACK_BOT_TOKEN", "")
+    slack_user_token = CONFIG.get("slack_user_token") or os.environ.get("SLACK_USER_TOKEN", "")
+    if slack_bot_token and slack_user_token:
+        print("📡 Slack API 스레드 수집 중...")
+        CONFIG["slack_bot_token"] = slack_bot_token
+        CONFIG["slack_user_token"] = slack_user_token
+        raw_threads = fetch_slack_threads()
+        if raw_threads:
+            print("🤖 Slack 스레드 요약 중...")
+            summarize_slack_threads(raw_threads)
+    else:
+        print("ℹ️ Slack API Token 미설정 — 기존 .md 파일만 사용")
 
     # 데이터 조회 — 모든 소스를 fetch_all() 한 번으로 수집
     print("📥 활동 데이터 조회 중...")
