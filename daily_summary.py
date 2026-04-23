@@ -85,9 +85,11 @@ def main():
         CONFIG["slack_bot_token"] = slack_bot_token
         CONFIG["slack_user_token"] = slack_user_token
         raw_threads = fetch_slack_threads()
-        if raw_threads:
-            print("🤖 Slack 스레드 요약 중...")
-            summarize_slack_threads(raw_threads)
+        # 단일 메시지는 요약 가치 없음 — 2건 이상만 요약
+        threads_to_summarize = [t for t in raw_threads if len(t.get("messages", [])) >= 2]
+        if threads_to_summarize:
+            print(f"🤖 Slack 스레드 {len(threads_to_summarize)}건 요약 중...")
+            summarize_slack_threads(threads_to_summarize)
     else:
         print("ℹ️ Slack API Token 미설정 — 기존 .md 파일만 사용")
 

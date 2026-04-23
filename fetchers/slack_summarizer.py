@@ -137,8 +137,18 @@ def _save_meta(summary_dir, meta):
 
 
 def _regenerate_readme(summary_dir):
-    """README.md 인덱스를 재생성한다."""
+    """README.md 인덱스를 재생성한다. 외부 자동화가 관리하는 README는 덮어쓰지 않는다."""
     dir_path = Path(summary_dir)
+    readme_path = dir_path / "README.md"
+    # "이번 주 포커스" 섹션이 있으면 외부 자동화가 관리하는 파일 → 스킵
+    if readme_path.exists():
+        try:
+            content = readme_path.read_text(encoding="utf-8")
+            if "이번 주 포커스" in content:
+                return
+        except (IOError, PermissionError):
+            pass
+
     md_files = sorted(f for f in dir_path.glob("*.md") if f.name.lower() != "readme.md")
 
     if not md_files:
