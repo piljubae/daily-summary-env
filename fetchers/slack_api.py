@@ -257,7 +257,7 @@ def fetch_slack_threads():
     # 2. 지정 채널 스레드 수집
     channel_threads = []
     for ch_id in watch_channels:
-        ch_threads = _get_channel_threads(bot_token, ch_id, since_ts)
+        ch_threads = _get_channel_threads(user_token, ch_id, since_ts)
         channel_threads.extend(ch_threads)
         print(f"  ✅ 채널 {ch_id}: 스레드 {len(ch_threads)}건")
 
@@ -272,15 +272,21 @@ def fetch_slack_threads():
 
     print(f"  📥 총 {len(all_threads)}개 스레드의 메시지 조회 중...")
 
-    # 4. 각 스레드의 전체 replies 조회
+    # 4. 각 스레드의 전체 replies 조회 (접근 불가 채널은 스킵)
     result = []
+    skipped = 0
     channel_name_cache = {}
     for t in all_threads:
         ch_id = t["channel_id"]
-        if ch_id not in channel_name_cache:
-            channel_name_cache[ch_id] = _get_channel_name(bot_token, ch_id)
 
-        messages = _get_thread_replies(bot_token, ch_id, t["thread_ts"])
+        messages = _get_thread_replies(user_token, ch_id, t["thread_ts"])
+        if not messages:
+            skipped += 1
+            continue
+
+        if ch_id not in channel_name_cache:
+            channel_name_cache[ch_id] = _get_channel_name(user_token, ch_id)
+
         messages = _resolve_user_names(bot_token, messages)
 
         result.append({
@@ -290,5 +296,7 @@ def fetch_slack_threads():
             "messages": messages,
         })
 
+    if skipped:
+        print(f"  ⏭️ {skipped}건 스킵 (DM 등 접근 불가)")
     print(f"  ✅ Slack 스레드 {len(result)}건 수집 완료")
     return result

@@ -38,30 +38,35 @@ def _summarize_thread_with_gemini(thread, api_key):
         name = msg.get("user_name", msg.get("user", "unknown"))
         messages_text += f"[{time_str}] {name}: {msg['text']}\n"
 
-    prompt = f"""다음은 Slack 채널 #{channel}의 스레드 대화입니다. 이 내용을 구조화된 마크다운으로 요약하세요.
+    prompt = f"""다음 Slack 스레드를 마크다운 문서로 요약하라. 코드 펜스 없이 마크다운 원문만 출력하라.
 
-요약 형식:
-1. 제목: "# [번호]. [토픽 제목]" (대화의 핵심 주제를 한 줄로)
-2. 메타데이터:
-   - **채널**: #{channel}
-   - **기간**: (대화 날짜 범위)
-   - **관련 문서**: (대화에서 언급된 URL이 있으면 포함)
-3. 본문:
-   - 배경/이슈 설명
-   - 결정 사항 또는 진행 상황
-   - Next Action (있으면)
+# 00. [토픽 제목]
 
-규칙:
-- 한국어로 작성
-- 불필요한 인사/잡담 제거
-- 기술적 세부사항은 유지
+- **채널**: #{channel}
+- **기간**: [대화 날짜 범위]
+- **관련 문서**: [URL이 있으면 포함]
+
+## 배경
+
+[이슈/맥락 설명]
+
+## 진행 상황
+
+[결정 사항, 누가 무엇을 했는지]
+
+## Next Action
+
+[후속 조치가 있으면]
+
+위 형식을 따라 작성하라. 규칙:
+- 한국어
+- 인사/잡담 제거, 기술적 세부사항 유지
 - Jira 티켓, PR, 문서 링크는 반드시 포함
-- 제목의 번호는 "00"으로 (나중에 재번호 부여)
+- 제목 번호는 00으로 유지 (나중에 재번호)
+- 코드 펜스(```)로 감싸지 말 것
 
-스레드 내용:
-{messages_text}
-
-요약:"""
+스레드:
+{messages_text}"""
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     payload = {
@@ -74,7 +79,11 @@ def _summarize_thread_with_gemini(thread, api_key):
             resp = requests.post(url, json=payload, timeout=60)
             resp.raise_for_status()
             result = resp.json()
-            return result["candidates"][0]["content"]["parts"][0]["text"]
+            text = result["candidates"][0]["content"]["parts"][0]["text"]
+            # 코드 펜스 제거 (```markdown ... ``` 등)
+            text = re.sub(r"^```\w*\n?", "", text.strip())
+            text = re.sub(r"\n?```$", "", text.strip())
+            return text
         except requests.exceptions.HTTPError as e:
             status = e.response.status_code if e.response is not None else None
             if status in (429, 500, 503) and attempt < len(retry_delays):
