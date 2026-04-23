@@ -208,14 +208,20 @@ def _load_meta(summary_dir):
     return {"last_fetched_ts": "0", "threads": {}}
 
 
-def _get_since_ts(meta):
+def _get_since_ts(meta, summary_dir):
     """마지막 조회 시점의 timestamp 반환."""
     ts = meta.get("last_fetched_ts", "0")
     if ts and ts != "0":
         return ts
-    # 메타가 없으면 7일 전부터
-    week_ago = datetime.now() - timedelta(days=7)
-    return str(week_ago.timestamp())
+    # 메타가 없지만 기존 .md 파일이 있으면 → 외부 자동화가 이미 관리 중
+    # "지금"부터 시작하여 새 스레드만 수집
+    if summary_dir:
+        existing = list(Path(summary_dir).glob("[0-9]*.md"))
+        if existing:
+            return str(datetime.now().timestamp())
+    # 완전 첫 실행: 1일 전부터
+    yesterday = datetime.now() - timedelta(days=1)
+    return str(yesterday.timestamp())
 
 
 def fetch_slack_threads():
@@ -239,7 +245,7 @@ def fetch_slack_threads():
         return []
 
     meta = _load_meta(summary_dir)
-    since_ts = _get_since_ts(meta)
+    since_ts = _get_since_ts(meta, summary_dir)
     # search.messages용 날짜 문자열
     since_date = datetime.fromtimestamp(float(since_ts)).strftime("%Y-%m-%d")
 
