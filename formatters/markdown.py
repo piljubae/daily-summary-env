@@ -3,6 +3,7 @@
 """Markdown report formatter."""
 
 import os
+import re
 import sys
 import json
 import time
@@ -531,8 +532,7 @@ def parse_ai_summary_sections(text: str) -> dict:
         dict with keys: "schedule", "activity", "plan"
         각 값은 해당 섹션 전체 텍스트 (헤더 포함). 없으면 빈 문자열.
     """
-    import re
-
+    # 전제: 섹션 헤더(⚠️/📊/📌)는 줄 시작에만 등장. 섹션 본문 안에 같은 이모지가 인라인 볼드로 있으면 오분류 가능.
     header_pattern = re.compile(r'(?=\*\*[⚠️📊📌])')
     parts = header_pattern.split(text)
 

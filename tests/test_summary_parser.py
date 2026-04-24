@@ -43,3 +43,8 @@ def test_no_plan_returns_empty():
     text = "**📊 어제의 핵심 활동**\n\n1. 작업"
     sections = parse_ai_summary_sections(text)
     assert sections["plan"] == ""
+
+
+def test_empty_string_returns_all_empty():
+    sections = parse_ai_summary_sections("")
+    assert sections == {"schedule": "", "activity": "", "plan": ""}
