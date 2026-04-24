@@ -8,6 +8,7 @@ import sys
 import json
 import time
 import requests
+from datetime import date
 from pathlib import Path
 from collections import defaultdict
 from urllib.parse import urlparse
@@ -409,7 +410,6 @@ def summarize_with_gemini(md_content, api_key, slack_context=""):
     if not api_key:
         return None
 
-    from datetime import date
     today = date.today().strftime("%Y-%m-%d")
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
@@ -426,8 +426,9 @@ def summarize_with_gemini(md_content, api_key, slack_context=""):
 {slack_context}
 """
 
-    prompt = f"""다음은 하루 동안의 활동 요약 리포트입니다. 이 내용을 바탕으로 세 파트로 나누어 요약해주세요.
-
+    part0_block = ""
+    if slack_context:
+        part0_block = f"""
 ## 파트 0: 오늘/이번주 챙길 일정 (슬랙 기반)
 
 아래 Slack 컨텍스트에서 **날짜가 명시된 임박 이벤트**만 추출하라.
@@ -439,7 +440,10 @@ def summarize_with_gemini(md_content, api_key, slack_context=""):
 - 이번 주 내 날짜 언급 → `[N/N 요일]` 태그 (예: `[4/27 월]`)
 - Next Action, 배포일, 입사일, SDK 수령일, QA 일정 등을 우선 스캔
 - 슬랙 컨텍스트가 없거나 임박 일정이 없으면 이 파트 전체 생략 (안내 문구 없이)
+"""
 
+    prompt = f"""다음은 하루 동안의 활동 요약 리포트입니다. 이 내용을 바탕으로 세 파트로 나누어 요약해주세요.
+{part0_block}
 ## 파트 1: 어제의 핵심 활동 (5가지)
 
 요구사항:
@@ -471,7 +475,7 @@ def summarize_with_gemini(md_content, api_key, slack_context=""):
 
 - [태그] 항목 설명 → 필요한 액션
 
-임박 순 정렬 (오늘 → 내일 → 이번 주). 항목 없으면 이 섹션 전체 생략.
+임박 순 정렬 (오늘 → 내일 → 이번 주). 슬랙 컨텍스트가 없거나 임박 일정이 없으면 이 섹션 전체 생략 (안내 문구 없이).
 
 **📊 어제의 핵심 활동**
 
