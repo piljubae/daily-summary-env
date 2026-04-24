@@ -3,10 +3,12 @@
 """Markdown report formatter."""
 
 import os
+import re
 import sys
 import json
 import time
 import requests
+from datetime import date
 from pathlib import Path
 from collections import defaultdict
 from urllib.parse import urlparse
@@ -144,6 +146,7 @@ def create_markdown_report(data, target_date):
     antigravity_data = data.antigravity_data
     calendar_events = data.calendar_events
     claude_cli_history = data.claude_cli_history
+    slack_summary = data.slack_summary
 
     total_time, _ = calculate_active_time(app_durations, domain_durations)
 
@@ -187,6 +190,19 @@ def create_markdown_report(data, target_date):
     else:
         report += "- (데이터 없음)\n"
     report += "\n"
+
+    # 📬 Slack 주요 토픽
+    if slack_summary and slack_summary.get("topics"):
+        topic_count = len(slack_summary["topics"])
+        report += f"**📬 Slack 주요 토픽** ({topic_count}건)\n"
+        for line in slack_summary.get("focus_lines", []):
+            report += f"- {line}\n"
+        if not slack_summary.get("focus_lines"):
+            for t in slack_summary["topics"][:5]:
+                report += f"- {t['title']}\n"
+            if topic_count > 5:
+                report += f"- ...외 {topic_count - 5}건\n"
+        report += "\n"
 
     # 3~4줄: Cowork 작업 요약 (의도 + 결과 + 참고 리소스)
     cowork_tasks = cowork_sessions
@@ -389,15 +405,45 @@ def save_report(markdown_content, target_date):
     return filepath
 
 
-def summarize_with_gemini(md_content, api_key):
+def summarize_with_gemini(md_content, api_key, slack_context=""):
     """Gemini API를 사용하여 일일 요약을 5가지 핵심 포인트로 요약"""
     if not api_key:
         return None
-    
+
+    today = date.today().strftime("%Y-%m-%d")
+
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
 
-    prompt = f"""다음은 하루 동안의 활동 요약 리포트입니다. 이 내용을 바탕으로 두 파트로 나누어 요약해주세요.
+    slack_block = ""
+    if slack_context:
+        slack_block = f"""
 
+## Slack 스레드 요약 (이번 주 주요 토픽)
+
+아래는 이번 주 Slack에서 논의된 주요 토픽의 상세 내용입니다.
+오늘의 플랜을 세울 때 이 맥락을 반영하세요 — 테스트 상태, 임박 일정, 액션 아이템 등.
+
+{slack_context}
+"""
+
+    part0_block = ""
+    if slack_context:
+        part0_block = f"""
+## 파트 0: 오늘/이번주 챙길 일정 (슬랙 기반)
+
+아래 Slack 컨텍스트에서 **날짜가 명시된 임박 이벤트**만 추출하라.
+오늘 날짜는 {today}이다.
+
+추출 기준:
+- 오늘 날짜 언급 → `[오늘]` 태그
+- 내일 날짜 언급 → `[내일]` 태그
+- 이번 주 내 날짜 언급 → `[N/N 요일]` 태그 (예: `[4/27 월]`)
+- Next Action, 배포일, 입사일, SDK 수령일, QA 일정 등을 우선 스캔
+- 슬랙 컨텍스트가 없거나 임박 일정이 없으면 이 파트 전체 생략 (안내 문구 없이)
+"""
+
+    prompt = f"""다음은 하루 동안의 활동 요약 리포트입니다. 이 내용을 바탕으로 세 파트로 나누어 요약해주세요.
+{part0_block}
 ## 파트 1: 어제의 핵심 활동 (5가지)
 
 요구사항:
@@ -420,9 +466,16 @@ def summarize_with_gemini(md_content, api_key):
 5. ⚪ 백로그 → 시간 남을 때만 언급
 6. "N일째" 수치가 큰 티켓은 장기화 → 마무리 가능하면 우선 완료 권장
 
-해당 섹션이 없으면 이 파트는 생략.
+해당 섹션이 없으면 이 파트는 생략. 생략 시 별도 안내 문구 없이 조용히 생략할 것.
 
 출력 형식 (반드시 준수):
+
+(파트 0: 임박 일정이 있을 경우에만 출력)
+**⚠️ 오늘/이번주 챙길 일정**
+
+- [태그] 항목 설명 → 필요한 액션
+
+임박 순 정렬 (오늘 → 내일 → 이번 주). 슬랙 컨텍스트가 없거나 임박 일정이 없으면 이 섹션 전체 생략 (안내 문구 없이).
 
 **📊 어제의 핵심 활동**
 
@@ -458,7 +511,7 @@ def summarize_with_gemini(md_content, api_key):
 
 리포트 내용:
 {md_content}
-
+{slack_block}
 요약:"""
 
     payload = {
@@ -496,3 +549,30 @@ def summarize_with_gemini(md_content, api_key):
 
     print(f"⚠️ Gemini API 요약 실패: {last_error}", file=sys.stderr)
     return None
+
+
+def parse_ai_summary_sections(text: str) -> dict:
+    """AI 요약 텍스트에서 섹션별로 분리.
+
+    Returns:
+        dict with keys: "schedule", "activity", "plan"
+        각 값은 해당 섹션 전체 텍스트 (헤더 포함). 없으면 빈 문자열.
+    """
+    # 전제: 섹션 헤더(⚠️/📊/📌)는 줄 시작에만 등장. 섹션 본문 안에 같은 이모지가 인라인 볼드로 있으면 오분류 가능.
+    header_pattern = re.compile(r'(?=\*\*[⚠️📊📌])')
+    parts = header_pattern.split(text)
+
+    result = {"schedule": "", "activity": "", "plan": ""}
+
+    for part in parts:
+        stripped = part.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("**⚠️"):
+            result["schedule"] = stripped
+        elif stripped.startswith("**📊"):
+            result["activity"] = stripped
+        elif stripped.startswith("**📌"):
+            result["plan"] = stripped
+
+    return result

@@ -14,6 +14,14 @@ build/
 dist/
 *.egg-info/
 
+# Venv (root-level)
+lib/
+bin/
+include/
+
+# Claude
+.claude/
+
 # IDE
 .vscode/
 .idea/

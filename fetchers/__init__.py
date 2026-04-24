@@ -9,6 +9,9 @@ from .todo import fetch_today_todos
 from .todo_matcher import extract_ticket_keys, tag_yesterday_tickets
 from .todo_scorer import score_and_group
 from .calendar import fetch_calendar_events
+from .slack_summary import fetch_slack_summary
+from .slack_api import fetch_slack_threads
+from .slack_summarizer import summarize_and_save as summarize_slack_threads
 from .all import FetchedData, fetch_all
 
 __all__ = [
@@ -21,6 +24,9 @@ __all__ = [
     'fetch_antigravity_activity',
     'fetch_today_todos',
     'fetch_calendar_events',
+    'fetch_slack_summary',
+    'fetch_slack_threads',
+    'summarize_slack_threads',
     # 할일 추천 파이프라인
     'extract_ticket_keys',
     'tag_yesterday_tickets',

@@ -8,6 +8,7 @@ from .markdown import (
     generate_one_liner,
     save_report,
     summarize_with_gemini,
+    parse_ai_summary_sections,
 )
 from .slack import send_to_slack
 
@@ -19,5 +20,6 @@ __all__ = [
     'generate_one_liner',
     'save_report',
     'summarize_with_gemini',
+    'parse_ai_summary_sections',
     'send_to_slack',
 ]

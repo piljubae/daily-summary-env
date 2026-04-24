@@ -17,7 +17,7 @@ from config import CONFIG
 from utils import get_daterange, get_last_workday, is_holiday
 
 # Import data fetchers
-from fetchers import fetch_all
+from fetchers import fetch_all, fetch_slack_threads, summarize_slack_threads
 
 # Import formatters
 from formatters import (
@@ -25,6 +25,7 @@ from formatters import (
     save_report,
     summarize_with_gemini,
     send_to_slack,
+    parse_ai_summary_sections,
 )
 
 
@@ -77,6 +78,22 @@ def main():
     print(f"🔄 ActivityWatch {date_label} [{target_date.strftime('%Y-%m-%d')}] 요약 생성 중...")
     print(f"📍 API 연결: {CONFIG['api_host']}:{CONFIG['api_port']}")
 
+    # Slack API → .md 파일 업데이트 (fetch_all이 .md를 읽기 전에 실행)
+    slack_bot_token = CONFIG.get("slack_bot_token") or os.environ.get("SLACK_BOT_TOKEN", "")
+    slack_user_token = CONFIG.get("slack_user_token") or os.environ.get("SLACK_USER_TOKEN", "")
+    if slack_bot_token and slack_user_token:
+        print("📡 Slack API 스레드 수집 중...")
+        CONFIG["slack_bot_token"] = slack_bot_token
+        CONFIG["slack_user_token"] = slack_user_token
+        raw_threads = fetch_slack_threads()
+        # 단일 메시지는 요약 가치 없음 — 2건 이상만 요약
+        threads_to_summarize = [t for t in raw_threads if len(t.get("messages", [])) >= 2]
+        if threads_to_summarize:
+            print(f"🤖 Slack 스레드 {len(threads_to_summarize)}건 요약 중...")
+            summarize_slack_threads(threads_to_summarize)
+    else:
+        print("ℹ️ Slack API Token 미설정 — 기존 .md 파일만 사용")
+
     # 데이터 조회 — 모든 소스를 fetch_all() 한 번으로 수집
     print("📥 활동 데이터 조회 중...")
     data = fetch_all(target_date, start_iso, end_iso)
@@ -108,7 +125,8 @@ def main():
     
     if gemini_api_key:
         print("🤖 AI 요약 생성 중...")
-        ai_summary = summarize_with_gemini(markdown_content, gemini_api_key)
+        slack_text = data.slack_summary.get("full_text", "") if data.slack_summary else ""
+        ai_summary = summarize_with_gemini(markdown_content, gemini_api_key, slack_context=slack_text)
         
         if ai_summary:
             print("✅ AI 요약 생성 완료!")
@@ -128,10 +146,24 @@ def main():
         CONFIG["slack_webhook_url"] = slack_webhook_url
         
         if ai_summary:
-            # AI 요약만 Slack으로 전송
+            sections = parse_ai_summary_sections(ai_summary)
+
+            # Slack 메시지: 일정(있을 때만) → 작업 플랜 순
+            # activity(어제 핵심활동)는 MD 파일에만 저장, Slack에는 미포함
+            slack_parts = [f"*📅 {target_date.strftime('%m/%d')} 일일 브리핑*"]
+            if sections["schedule"]:
+                slack_parts.append(sections["schedule"])
+            if sections["plan"]:
+                slack_parts.append(sections["plan"])
+
+            if len(slack_parts) > 1:  # 헤더 외 내용 있음
+                slack_parts.append(f"---\n*상세 리포트*: `{filepath}`")
+                message_to_send = "\n\n".join(slack_parts)
+            else:  # schedule/plan 모두 비었으면 ai_summary 전체 fallback
+                message_to_send = f"*📅 {target_date.strftime('%m/%d')} 일일 브리핑*\n\n{ai_summary}\n\n---\n*상세 리포트*: `{filepath}`"
+
             print("📤 AI 요약만 Slack으로 전송 중...")
-            summary_message = f"*📊 {target_date.strftime('%m/%d')} 일일 요약 (AI 생성)*\n\n{ai_summary}\n\n---\n*상세 리포트*: `{filepath}`"
-            if send_to_slack(summary_message):
+            if send_to_slack(message_to_send):
                 print("✅ Slack 전송 완료!")
             else:
                 print("⚠️ Slack 전송 실패")
