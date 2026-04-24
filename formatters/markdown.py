@@ -522,3 +522,31 @@ def summarize_with_gemini(md_content, api_key, slack_context=""):
 
     print(f"⚠️ Gemini API 요약 실패: {last_error}", file=sys.stderr)
     return None
+
+
+def parse_ai_summary_sections(text: str) -> dict:
+    """AI 요약 텍스트에서 섹션별로 분리.
+
+    Returns:
+        dict with keys: "schedule", "activity", "plan"
+        각 값은 해당 섹션 전체 텍스트 (헤더 포함). 없으면 빈 문자열.
+    """
+    import re
+
+    header_pattern = re.compile(r'(?=\*\*[⚠️📊📌])')
+    parts = header_pattern.split(text)
+
+    result = {"schedule": "", "activity": "", "plan": ""}
+
+    for part in parts:
+        stripped = part.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("**⚠️"):
+            result["schedule"] = stripped
+        elif stripped.startswith("**📊"):
+            result["activity"] = stripped
+        elif stripped.startswith("**📌"):
+            result["plan"] = stripped
+
+    return result
