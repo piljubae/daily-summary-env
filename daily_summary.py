@@ -145,10 +145,19 @@ def main():
         CONFIG["slack_webhook_url"] = slack_webhook_url
         
         if ai_summary:
-            # AI 요약만 Slack으로 전송
+            from formatters.markdown import parse_ai_summary_sections
+            sections = parse_ai_summary_sections(ai_summary)
+
+            # Slack 메시지: 일정(있을 때만) → 작업 플랜 순
+            slack_parts = [f"*📅 {target_date.strftime('%m/%d')} 일일 브리핑*"]
+            if sections["schedule"]:
+                slack_parts.append(sections["schedule"])
+            if sections["plan"]:
+                slack_parts.append(sections["plan"])
+            slack_parts.append(f"---\n*상세 리포트*: `{filepath}`")
+
             print("📤 AI 요약만 Slack으로 전송 중...")
-            summary_message = f"*📊 {target_date.strftime('%m/%d')} 일일 요약 (AI 생성)*\n\n{ai_summary}\n\n---\n*상세 리포트*: `{filepath}`"
-            if send_to_slack(summary_message):
+            if send_to_slack("\n\n".join(slack_parts)):
                 print("✅ Slack 전송 완료!")
             else:
                 print("⚠️ Slack 전송 실패")
