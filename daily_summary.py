@@ -25,6 +25,7 @@ from formatters import (
     save_report,
     summarize_with_gemini,
     send_to_slack,
+    parse_ai_summary_sections,
 )
 
 
@@ -145,19 +146,24 @@ def main():
         CONFIG["slack_webhook_url"] = slack_webhook_url
         
         if ai_summary:
-            from formatters.markdown import parse_ai_summary_sections
             sections = parse_ai_summary_sections(ai_summary)
 
             # Slack 메시지: 일정(있을 때만) → 작업 플랜 순
+            # activity(어제 핵심활동)는 MD 파일에만 저장, Slack에는 미포함
             slack_parts = [f"*📅 {target_date.strftime('%m/%d')} 일일 브리핑*"]
             if sections["schedule"]:
                 slack_parts.append(sections["schedule"])
             if sections["plan"]:
                 slack_parts.append(sections["plan"])
-            slack_parts.append(f"---\n*상세 리포트*: `{filepath}`")
+
+            if len(slack_parts) > 1:  # 헤더 외 내용 있음
+                slack_parts.append(f"---\n*상세 리포트*: `{filepath}`")
+                message_to_send = "\n\n".join(slack_parts)
+            else:  # schedule/plan 모두 비었으면 ai_summary 전체 fallback
+                message_to_send = f"*📅 {target_date.strftime('%m/%d')} 일일 브리핑*\n\n{ai_summary}\n\n---\n*상세 리포트*: `{filepath}`"
 
             print("📤 AI 요약만 Slack으로 전송 중...")
-            if send_to_slack("\n\n".join(slack_parts)):
+            if send_to_slack(message_to_send):
                 print("✅ Slack 전송 완료!")
             else:
                 print("⚠️ Slack 전송 실패")
