@@ -12,8 +12,9 @@ ActivityWatch 데이터를 기반으로 하루 활동을 자동으로 요약하�
 - ✅ **Firebender (Android Studio)**: 안드로이드 스튜디오 AI 플러그인 사용 로그 및 질문 내역 추출
 - ✅ **캘린더 미팅 추가**: macOS 캘린더에서 당일 업무 미팅을 가져와 한 일 목록에 포함
 - ✅ **Jira 할일 추천**: 활성 티켓을 액션 기반 3그룹(🔴 오늘 집중 / 🟡 이번주 내 / ⚪ 백로그)으로 분류하고, 자동 태그(D-N, 📍우선순위, 💬코멘트, 💤방치, 🔄어제이어서, N일째) 부여
+- ✅ **Slack 멘션 스레드 수집**: Slack API로 내 멘션 + 지정 채널 스레드를 자동 수집·요약해 일일 리포트에 포함
 - ✅ **AI 요약 + 오늘의 플랜**: Gemini API로 어제 핵심 활동 5가지 요약 + 우선순위 기반 오늘의 실행 플랜 제안
-- ✅ **Slack 전송**: AI 요약을 Slack DM으로 자동 전송
+- ✅ **Slack 브리핑**: 임박 일정(⚠️) → 오늘의 작업 플랜(📌) 순으로 Slack DM 자동 전송
 
 ## 사전 준비 사항 (Prerequisites)
 
@@ -103,9 +104,17 @@ JIRA_URL=https://your-domain.atlassian.net
 JIRA_EMAIL=your-email@company.com
 JIRA_API_TOKEN=your-jira-api-token
 JIRA_PROJECT_KEY=PROJECT
+
+# Slack API 멘션 수집 (선택사항 — 없으면 기존 .md 파일만 사용)
+SLACK_USER_TOKEN=xoxp-...        # 멘션 검색용 (search.messages 권한 필요)
+SLACK_BOT_TOKEN=xoxb-...         # 스레드 조회 및 유저명 해석용
+SLACK_WATCH_CHANNELS=C1234,C5678 # 추가 모니터링 채널 ID (콤마 구분, 선택)
+SLACK_SUMMARY_DIR=/path/to/slack-summaries  # 슬랙 .md 저장 위치
 ```
 
 > 💡 **Jira API Token 발급**: [Atlassian API Token 관리](https://id.atlassian.com/manage-profile/security/api-tokens)에서 생성할 수 있습니다.
+
+> 💡 **Slack Token 발급**: User Token(`xoxp-`)은 Slack 앱 → OAuth & Permissions에서 `search:read` 스코프로 발급, Bot Token(`xoxb-`)은 `channels:history`, `users:read` 스코프가 필요합니다.
 
 #### 2-3. macOS 캘린더 설정
 
@@ -184,9 +193,14 @@ deactivate
 
 각 티켓에는 자동 태그가 붙습니다: `D-N` `📍High` `💬코멘트` `💤N일방치` `🔄어제이어서` `진행중 N일째`
 
-### 2. Slack DM (AI 요약 + 오늘의 플랜)
-- **📊 어제의 핵심 활동** — 5가지 핵심 포인트 요약
+### 2. Slack 브리핑
+
+매일 아침 두 섹션으로 구성된 브리핑이 전송됩니다:
+
+- **⚠️ 오늘/이번주 챙길 일정** — 슬랙 멘션에서 날짜가 명시된 임박 이벤트 추출 (입사일, SDK 수령일, 배포일 등). 임박 순(오늘 → 내일 → 이번주) 정렬. 해당 항목 없으면 생략.
 - **📌 오늘의 플랜** — Jira 할일과 미팅을 종합한 우선순위 실행 플랜 (티켓번호 + 액션 동사 + 근거)
+
+> 어제의 핵심 활동(📊)은 마크다운 파일에만 저장되며 Slack 브리핑에는 포함되지 않습니다.
 
 ## 보안 주의사항
 
