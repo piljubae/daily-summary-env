@@ -148,11 +148,12 @@ def main():
         if ai_summary:
             sections = parse_ai_summary_sections(ai_summary)
 
-            # Slack 메시지: 일정(있을 때만) → 작업 플랜 순
-            # activity(어제 핵심활동)는 MD 파일에만 저장, Slack에는 미포함
+            # Slack 메시지: 일정 → 어제의 핵심 활동 → 오늘의 플랜 순
             slack_parts = [f"*📅 {target_date.strftime('%m/%d')} 일일 브리핑*"]
             if sections["schedule"]:
                 slack_parts.append(sections["schedule"])
+            if sections["activity"]:
+                slack_parts.append(sections["activity"])
             if sections["plan"]:
                 slack_parts.append(sections["plan"])
 
