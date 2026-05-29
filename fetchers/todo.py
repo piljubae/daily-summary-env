@@ -117,6 +117,8 @@ def _jira_headers() -> dict:
     """Jira Basic Auth 헤더 반환."""
     jira_email = CONFIG.get("jira_email") or os.environ.get("JIRA_EMAIL", "")
     jira_token = CONFIG.get("jira_api_token") or os.environ.get("JIRA_API_TOKEN", "")
+    if not jira_email or not jira_token:
+        raise ValueError("JIRA_EMAIL and JIRA_API_TOKEN must be configured")
     credentials = base64.b64encode(f"{jira_email}:{jira_token}".encode()).decode()
     return {
         "Authorization": f"Basic {credentials}",
