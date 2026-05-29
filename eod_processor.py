@@ -100,7 +100,11 @@ def cmd_process():
         print("❌ ~/.eod_state.json 없음 — --send 먼저 실행하세요", file=sys.stderr)
         return 1
 
-    state = json.loads(_STATE_FILE.read_text(encoding="utf-8"))
+    try:
+        state = json.loads(_STATE_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"❌ state 파일 읽기 실패: {e}", file=sys.stderr)
+        return 1
     if state.get("date") != date.today().isoformat():
         print("⚠️ 오늘 state 없음 — --send가 오늘 실행됐는지 확인", file=sys.stderr)
         return 1
@@ -157,7 +161,9 @@ def cmd_process():
 
 
 def _post_summary(bot_token: str, state: dict, summary_text: str):
-    post_message(bot_token, state["channel_id"], summary_text, thread_ts=state["ts"])
+    ch, ts = post_message(bot_token, state["channel_id"], summary_text, thread_ts=state["ts"])
+    if not ch:
+        print("⚠️ 요약 메시지 전송 실패", file=sys.stderr)
 
 
 def main():
