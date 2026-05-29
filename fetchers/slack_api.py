@@ -6,6 +6,7 @@ User Token(xoxp-)으로 멘션 검색, Bot Token(xoxb-)으로 스레드 조회.
 """
 
 import json
+import sys
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -306,3 +307,48 @@ def fetch_slack_threads():
         print(f"  ⏭️ {skipped}건 스킵 (DM 등 접근 불가)")
     print(f"  ✅ Slack 스레드 {len(result)}건 수집 완료")
     return result
+
+
+# ---------------------------------------------------------------------------
+# EOD helpers
+# ---------------------------------------------------------------------------
+
+def open_dm_channel(bot_token: str, user_id: str) -> str | None:
+    """conversations.open으로 DM 채널을 열거나 기존 채널 ID 반환."""
+    data = _get("conversations.open", bot_token, {"users": user_id})
+    if data:
+        return data.get("channel", {}).get("id")
+    return None
+
+
+def post_message(
+    bot_token: str,
+    channel_id: str,
+    text: str,
+    thread_ts: str | None = None,
+) -> tuple[str, str] | tuple[None, None]:
+    """Slack 채널에 메시지 전송. (channel_id, ts) 반환."""
+    url = f"{_SLACK_API}/chat.postMessage"
+    headers = {"Authorization": f"Bearer {bot_token}", "Content-Type": "application/json"}
+    payload: dict = {"channel": channel_id, "text": text, "mrkdwn": True}
+    if thread_ts:
+        payload["thread_ts"] = thread_ts
+
+    for attempt in range(3):
+        resp = requests.post(url, headers=headers, json=payload, timeout=30)
+        if resp.status_code == 429:
+            time.sleep(int(resp.headers.get("Retry-After", 5)))
+            continue
+        resp.raise_for_status()
+        data = resp.json()
+        if data.get("ok"):
+            return data["channel"], data["ts"]
+        print(f"⚠️ chat.postMessage 실패: {data.get('error')}", file=sys.stderr)
+        return None, None
+    return None, None
+
+
+def read_thread_replies(bot_token: str, channel_id: str, thread_ts: str) -> list[dict]:
+    """스레드 답글 반환 (루트 메시지 제외)."""
+    messages = _get_thread_replies(bot_token, channel_id, thread_ts)
+    return messages[1:] if messages else []
