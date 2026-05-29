@@ -111,3 +111,77 @@ def fetch_today_todos() -> list[dict]:
     except Exception as e:
         print(f"⚠️ Jira API 조회 실패: {e}", file=sys.stderr)
         return []
+
+
+def _jira_headers() -> dict:
+    """Jira Basic Auth 헤더 반환."""
+    jira_email = CONFIG.get("jira_email") or os.environ.get("JIRA_EMAIL", "")
+    jira_token = CONFIG.get("jira_api_token") or os.environ.get("JIRA_API_TOKEN", "")
+    credentials = base64.b64encode(f"{jira_email}:{jira_token}".encode()).decode()
+    return {
+        "Authorization": f"Basic {credentials}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+
+
+def transition_to_done(issue_key: str) -> bool:
+    """Jira 티켓을 Done/완료 상태로 전환.
+
+    Available transitions 중 name이 done/완료/closed/close인 것을 찾아 전환.
+    없으면 add_jira_comment로 fallback.
+
+    Returns:
+        bool: 성공 시 True, 실패 시 False.
+    """
+    base_url = (CONFIG.get("jira_url") or os.environ.get("JIRA_URL", "")).rstrip("/")
+    headers = _jira_headers()
+
+    try:
+        resp = requests.get(
+            f"{base_url}/rest/api/3/issue/{issue_key}/transitions",
+            headers=headers, timeout=15,
+        )
+        resp.raise_for_status()
+        transitions = resp.json().get("transitions", [])
+        done_ids = [
+            t["id"] for t in transitions
+            if t["name"].lower() in ("done", "완료", "closed", "close")
+        ]
+        if not done_ids:
+            print(f"⚠️ {issue_key}: Done 전환 없음 — 코멘트만 추가", file=sys.stderr)
+            return add_jira_comment(issue_key, "✅ EOD 리뷰 완료 확인")
+
+        resp2 = requests.post(
+            f"{base_url}/rest/api/3/issue/{issue_key}/transitions",
+            headers=headers,
+            json={"transition": {"id": done_ids[0]}},
+            timeout=15,
+        )
+        resp2.raise_for_status()
+        return True
+    except Exception as e:
+        print(f"⚠️ {issue_key} 전환 실패: {e}", file=sys.stderr)
+        return False
+
+
+def add_jira_comment(issue_key: str, text: str) -> bool:
+    """Jira 티켓에 텍스트 코멘트 추가 (ADF 형식)."""
+    base_url = (CONFIG.get("jira_url") or os.environ.get("JIRA_URL", "")).rstrip("/")
+    headers = _jira_headers()
+    body = {
+        "body": {
+            "type": "doc", "version": 1,
+            "content": [{"type": "paragraph", "content": [{"type": "text", "text": text}]}],
+        }
+    }
+    try:
+        resp = requests.post(
+            f"{base_url}/rest/api/3/issue/{issue_key}/comment",
+            headers=headers, json=body, timeout=15,
+        )
+        resp.raise_for_status()
+        return True
+    except Exception as e:
+        print(f"⚠️ {issue_key} 코멘트 실패: {e}", file=sys.stderr)
+        return False
