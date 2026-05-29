@@ -23,7 +23,10 @@ def find_md_file(topic_hint: str, slack_dir: str) -> Path | None:
 
 
 def _already_closed(p: Path) -> bool:
-    return "종결" in p.read_text(encoding="utf-8")
+    try:
+        return "종결" in p.read_text(encoding="utf-8")
+    except OSError:
+        return False
 
 
 def append_closure_note(p: Path, today: str | None = None) -> bool:

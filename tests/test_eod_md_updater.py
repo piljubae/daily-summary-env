@@ -27,3 +27,11 @@ def test_append_handoff_note():
     content = p.read_text(encoding="utf-8")
     assert "박지은" in content
     assert "인수인계" in content
+
+def test_append_closure_note_idempotent():
+    p = _make_md("# 테스트\n## Next\n- 확인\n")
+    first = append_closure_note(p, "2026-05-29")
+    second = append_closure_note(p, "2026-05-29")
+    assert first is True
+    assert second is False
+    assert p.read_text(encoding="utf-8").count("종결") == 1
