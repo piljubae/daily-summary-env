@@ -1,6 +1,6 @@
 import re
 
-_JIRA_KEY = re.compile(r'\b([A-Z]+-\d+)\b', re.IGNORECASE)
+_JIRA_KEY = re.compile(r'\b([A-Z]{2,}-\d+)\b')
 _DONE_KW = re.compile(r'완료|done|finish|닫기', re.IGNORECASE)
 _CONTINUE_KW = re.compile(r'계속|continue|skip|유지', re.IGNORECASE)
 _HANDOFF_KW = re.compile(r'인수인계|handoff|넘김|넘겼', re.IGNORECASE)
