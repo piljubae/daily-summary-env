@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** 매일 6pm에 Slack DM으로 오늘 Jira/Slack 리뷰 항목을 물어보고, 6:15pm에 답글을 읽어서 Jira 업데이트 + 로컬 .md 파일 자동 반영.
+**Goal:** 매일 6pm에 Slack DM으로 오늘 Jira/Slack 리뷰 항목을 물어보고, 6:30pm에 답글을 읽어서 Jira 업데이트 + 로컬 .md 파일 자동 반영.
 
-**Architecture:** `eod_processor.py` 단일 스크립트에 `--send` / `--process` 두 모드. 상태(channel_id + ts)는 `~/.eod_state.json`에 저장. 두 개의 launchd plist가 각각 6:00pm/6:15pm(KST)에 실행.
+**Architecture:** `eod_processor.py` 단일 스크립트에 `--send` / `--process` 두 모드. 상태(channel_id + ts)는 `~/.eod_state.json`에 저장. 두 개의 launchd plist가 각각 6:00pm/6:30pm(KST)에 실행.
 
 **Tech Stack:** Python 3, Slack Web API (bot/user token), Jira REST API v3, launchd
 
@@ -466,7 +466,7 @@ git commit -m "feat: add EOD Slack .md file updater"
 
 Usage:
     python eod_processor.py --send     # 6pm: DM 전송
-    python eod_processor.py --process  # 6:15pm: 스레드 읽어서 처리
+    python eod_processor.py --process  # 6:30pm: 스레드 읽어서 처리
 """
 
 import argparse
@@ -562,7 +562,7 @@ def cmd_send():
 
 
 def cmd_process():
-    """6:15pm: 스레드 읽어서 Jira + .md 업데이트."""
+    """6:30pm: 스레드 읽어서 Jira + .md 업데이트."""
     bot_token, _ = _slack_tokens()
     if not bot_token:
         print("❌ SLACK_BOT_TOKEN 미설정", file=sys.stderr)
@@ -637,7 +637,7 @@ def main():
     parser = argparse.ArgumentParser(description="EOD Review Processor")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--send", action="store_true", help="6pm: DM 전송")
-    group.add_argument("--process", action="store_true", help="6:15pm: 스레드 처리")
+    group.add_argument("--process", action="store_true", help="6:30pm: 스레드 처리")
     args = parser.parse_args()
 
     if args.send:
@@ -730,7 +730,7 @@ echo "--- EOD Process Done: $(date) ---" >> "$LOG_FILE"
 </plist>
 ```
 
-`com.piljubae.eod.process.plist` (6:15pm KST = 09:15 UTC):
+`com.piljubae.eod.process.plist` (6:30pm KST = 09:30 UTC):
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -748,7 +748,7 @@ echo "--- EOD Process Done: $(date) ---" >> "$LOG_FILE"
         <key>Hour</key>
         <integer>9</integer>
         <key>Minute</key>
-        <integer>15</integer>
+        <integer>30</integer>
     </dict>
     <key>StandardOutPath</key>
     <string>/Users/pilju.bae/daily-summary-env/eod_process_stdout.log</string>
@@ -777,7 +777,7 @@ launchctl list | grep piljubae.eod
 **Step 4: 커밋**
 ```bash
 git add com.piljubae.eod.send.plist com.piljubae.eod.process.plist run_eod_send.sh run_eod_process.sh
-git commit -m "feat: add launchd plists for EOD send (6pm) and process (6:15pm)"
+git commit -m "feat: add launchd plists for EOD send (6pm) and process (6:30pm)"
 ```
 
 ---
