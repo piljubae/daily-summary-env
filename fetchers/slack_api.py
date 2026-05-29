@@ -315,9 +315,16 @@ def fetch_slack_threads():
 
 def open_dm_channel(bot_token: str, user_id: str) -> str | None:
     """conversations.open으로 DM 채널을 열거나 기존 채널 ID 반환."""
-    data = _get("conversations.open", bot_token, {"users": user_id})
-    if data:
-        return data.get("channel", {}).get("id")
+    url = f"{_SLACK_API}/conversations.open"
+    headers = {"Authorization": f"Bearer {bot_token}", "Content-Type": "application/json"}
+    try:
+        resp = requests.post(url, headers=headers, json={"users": user_id}, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+        if data.get("ok"):
+            return data.get("channel", {}).get("id")
+    except Exception as e:
+        print(f"⚠️ conversations.open 실패: {e}", file=sys.stderr)
     return None
 
 
