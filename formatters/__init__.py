@@ -10,6 +10,10 @@ from .markdown import (
     summarize_with_gemini,
     parse_ai_summary_sections,
 )
+from .work_activity import (
+    create_work_activity_report,
+    save_work_activity_report,
+)
 from .slack import send_to_slack
 
 __all__ = [
@@ -21,5 +25,7 @@ __all__ = [
     'save_report',
     'summarize_with_gemini',
     'parse_ai_summary_sections',
+    'create_work_activity_report',
+    'save_work_activity_report',
     'send_to_slack',
 ]

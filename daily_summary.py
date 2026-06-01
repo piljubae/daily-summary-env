@@ -26,6 +26,8 @@ from formatters import (
     summarize_with_gemini,
     send_to_slack,
     parse_ai_summary_sections,
+    create_work_activity_report,
+    save_work_activity_report,
 )
 
 
@@ -118,6 +120,12 @@ def main():
     print("💾 파일 저장 중...")
     filepath = save_report(markdown_content, target_date)
     print(f"✅ 보고서 저장: {filepath}")
+
+    # Work-activity 보고서 생성 및 저장
+    print("📝 Work-activity 보고서 생성 중...")
+    work_activity_content = create_work_activity_report(data, target_date)
+    work_activity_path = save_work_activity_report(work_activity_content, target_date)
+    print(f"✅ Work-activity 보고서 저장: {work_activity_path}")
 
     # AI 요약 생성 및 추가
     gemini_api_key = CONFIG.get("gemini_api_key") or os.environ.get("GEMINI_API_KEY", "")
