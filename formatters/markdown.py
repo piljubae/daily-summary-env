@@ -526,9 +526,12 @@ def summarize_with_gemini(md_content, api_key, slack_context=""):
         "Content-Type": "application/json"
     }
 
-    retry_delays = [10, 30, 60]
+    # 예약 실행 시간대(오전 피크)에 503(모델 과부하)이 잦아 재시도 budget을 ~7분으로 확대.
+    # 마지막 시도에는 sleep 없이 즉시 종료한다.
+    retry_delays = [15, 30, 60, 120, 240]
+    total_attempts = len(retry_delays) + 1
     last_error = None
-    for attempt, delay in enumerate(retry_delays, start=1):
+    for attempt in range(1, total_attempts + 1):
         try:
             response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=60)
             response.raise_for_status()
@@ -536,12 +539,12 @@ def summarize_with_gemini(md_content, api_key, slack_context=""):
             return result['candidates'][0]['content']['parts'][0]['text']
         except requests.exceptions.HTTPError as e:
             status = e.response.status_code if e.response is not None else None
-            if status in (429, 500, 503) and attempt < len(retry_delays) + 1:
-                print(f"⚠️ Gemini API {status} 오류 (시도 {attempt}/{len(retry_delays)}), {delay}초 후 재시도...", file=sys.stderr)
+            last_error = e
+            if status in (429, 500, 503) and attempt < total_attempts:
+                delay = retry_delays[attempt - 1]
+                print(f"⚠️ Gemini API {status} 오류 (시도 {attempt}/{total_attempts}), {delay}초 후 재시도...", file=sys.stderr)
                 time.sleep(delay)
-                last_error = e
             else:
-                last_error = e
                 break
         except Exception as e:
             last_error = e
