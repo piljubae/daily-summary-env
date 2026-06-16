@@ -412,8 +412,6 @@ def summarize_with_gemini(md_content, api_key, slack_context=""):
 
     today = date.today().strftime("%Y-%m-%d")
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
-
     slack_block = ""
     if slack_context:
         slack_block = f"""
@@ -530,27 +528,49 @@ def summarize_with_gemini(md_content, api_key, slack_context=""):
     # 마지막 시도에는 sleep 없이 즉시 종료한다.
     retry_delays = [15, 30, 60, 120, 240]
     total_attempts = len(retry_delays) + 1
-    last_error = None
-    for attempt in range(1, total_attempts + 1):
-        try:
-            response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=60)
-            response.raise_for_status()
-            result = response.json()
-            return result['candidates'][0]['content']['parts'][0]['text']
-        except requests.exceptions.HTTPError as e:
-            status = e.response.status_code if e.response is not None else None
-            last_error = e
-            if status in (429, 500, 503) and attempt < total_attempts:
+
+    def _call_model(model):
+        """단일 모델로 재시도 루프를 돌려 요약 텍스트를 반환. 모두 실패하면 None."""
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        last_error = None
+        for attempt in range(1, total_attempts + 1):
+            try:
+                response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=60)
+                response.raise_for_status()
+                result = response.json()
+                return result['candidates'][0]['content']['parts'][0]['text']
+            except requests.exceptions.HTTPError as e:
+                status = e.response.status_code if e.response is not None else None
+                last_error = e
+                retryable = status in (429, 500, 503)
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+                # 503만큼 흔한 일시 장애. HTTPError가 아니므로 별도로 잡아 재시도한다.
+                last_error = e
+                retryable = True
+            except Exception as e:
+                last_error = e
+                retryable = False
+
+            if retryable and attempt < total_attempts:
                 delay = retry_delays[attempt - 1]
-                print(f"⚠️ Gemini API {status} 오류 (시도 {attempt}/{total_attempts}), {delay}초 후 재시도...", file=sys.stderr)
+                print(f"⚠️ Gemini API({model}) 오류 (시도 {attempt}/{total_attempts}), {delay}초 후 재시도... [{type(last_error).__name__}]", file=sys.stderr)
                 time.sleep(delay)
             else:
                 break
-        except Exception as e:
-            last_error = e
-            break
 
-    print(f"⚠️ Gemini API 요약 실패: {last_error}", file=sys.stderr)
+        print(f"⚠️ Gemini API({model}) 요약 실패: {last_error}", file=sys.stderr)
+        return None
+
+    # flash가 과부하(503)일 때를 대비해 pro로 폴백한다. pro는 부하 분산이 달라 통과하는 경우가 잦다.
+    models = ("gemini-2.5-flash", "gemini-2.5-pro")
+    for i, model in enumerate(models):
+        text = _call_model(model)
+        if text is not None:
+            return text
+        if i < len(models) - 1:
+            print(f"↩️ {model} 실패 → {models[i + 1]}로 폴백", file=sys.stderr)
+
+    print("⚠️ Gemini API 요약 실패: 모든 모델/재시도 소진", file=sys.stderr)
     return None
 
 
