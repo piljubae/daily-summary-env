@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 """Slack 스레드 요약 파일 fetcher."""
 
+import os
 import re
+import time
 from pathlib import Path
 
 from config import CONFIG
@@ -19,6 +21,11 @@ def fetch_slack_summary() -> dict:
             "full_text": str,
         }
         디렉토리가 없거나 빈 경우 빈 dict 반환.
+
+    참고: ``full_text``는 Gemini 일일 요약 입력으로 쓰이므로 비용에 직결된다.
+    거의 변하지 않는 오래된 팀노트까지 매일 재전송하지 않도록, 최근
+    ``SLACK_CONTEXT_DAYS``일(기본 7) 이내에 수정된 파일만 ``full_text``에
+    포함한다. ``topics``/``focus_lines``는 리포트 표시용이라 전체를 유지한다.
     """
     summary_dir = CONFIG.get("slack_summary_dir", "")
     if not summary_dir:
@@ -32,6 +39,21 @@ def fetch_slack_summary() -> dict:
     if not md_files:
         return {}
 
+    # full_text(=Gemini 입력)에 포함할 최근 수정 파일 기준. 0 이하이면 전체 포함.
+    try:
+        context_days = int(os.environ.get("SLACK_CONTEXT_DAYS", "7"))
+    except ValueError:
+        context_days = 7
+    cutoff = time.time() - context_days * 86400 if context_days > 0 else None
+
+    def _is_recent(path: Path) -> bool:
+        if cutoff is None:
+            return True
+        try:
+            return path.stat().st_mtime >= cutoff
+        except OSError:
+            return False
+
     readme_content = ""
     topics = []
     all_parts = []
@@ -42,9 +64,12 @@ def fetch_slack_summary() -> dict:
         except (IOError, PermissionError):
             continue
 
+        recent = _is_recent(md_file)
+
         if md_file.name.lower() == "readme.md":
             readme_content = content
-            all_parts.append(content)
+            if recent:
+                all_parts.append(content)
             continue
 
         title_match = re.search(r"^#\s+(.+)", content, re.MULTILINE)
@@ -55,7 +80,8 @@ def fetch_slack_summary() -> dict:
             "title": title,
             "content": content,
         })
-        all_parts.append(content)
+        if recent:
+            all_parts.append(content)
 
     focus_lines = []
     if readme_content:
