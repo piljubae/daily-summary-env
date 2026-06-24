@@ -10,8 +10,9 @@ Usage:
 import argparse
 import json
 import os
+import re
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 from config import CONFIG
@@ -29,23 +30,44 @@ def _slack_tokens():
     return bot
 
 
-def _open_pending_slack_topics() -> list[str]:
-    """종결되지 않은 Slack .md 파일 제목 반환."""
-    topics = []
+_CLOSURE_RE = re.compile(r"상태\s*\**\s*:\s*\**\s*종결")
+_UPDATE_RE = re.compile(r"##\s*업데이트\s*(\d{4}-\d{2}-\d{2})")
+
+
+def _open_pending_slack_topics(within_days: int = 7) -> list[str]:
+    """최근 ``within_days``일 내 업데이트된, 종결되지 않은 Slack 토픽을 최신순으로 반환.
+
+    각 토픽 파일의 마지막 ``## 업데이트 YYYY-MM-DD`` 섹션 날짜를 활동 시점으로 본다.
+    업데이트 섹션이 없거나(활동 신호 없음) 오래된 토픽은 제외해, 완료/방치된 토픽이
+    EOD 목록 앞을 계속 차지하던 문제를 막는다. (mtime은 daily 슬림 파일 생성 시
+    일괄 갱신돼 신뢰할 수 없으므로 본문의 업데이트 날짜를 신호로 쓴다.)
+    """
+    cutoff = date.today() - timedelta(days=within_days)
+    items = []  # [(last_update_date, line), ...]
     slack_path = Path(_SLACK_DIR)
     if not slack_path.exists():
-        return topics
+        return []
     for p in sorted(slack_path.glob("[0-9]*.md")):
         try:
             content = p.read_text(encoding="utf-8")
         except (IOError, UnicodeDecodeError):
             continue
-        if "종결" in content:
+        if _CLOSURE_RE.search(content):
+            continue
+        dates = _UPDATE_RE.findall(content)
+        if not dates:
+            continue
+        try:
+            last = max(date.fromisoformat(d) for d in dates)
+        except ValueError:
+            continue
+        if last < cutoff:
             continue
         title = content.split("\n")[0].lstrip("# ").strip()
         if title:
-            topics.append(f"• {title} (`{p.name}`)")
-    return topics
+            items.append((last, f"• {title} (`{p.name}`)"))
+    items.sort(key=lambda x: x[0], reverse=True)
+    return [line for _, line in items]
 
 
 def cmd_send():
