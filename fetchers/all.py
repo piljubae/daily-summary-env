@@ -77,6 +77,6 @@ def fetch_all(target_date: datetime, start_iso: str, end_iso: str) -> FetchedDat
         antigravity_data=fetch_antigravity_activity(target_date),
         calendar_events=fetch_calendar_events(datetime.now()),
         claude_cli_history=fetch_claude_cli_history(target_date),
-        slack_summary=fetch_slack_summary(),
+        slack_summary=fetch_slack_summary(target_date),
         # ── 여기에 새 fetcher 호출 추가 ─────────────────
     )
