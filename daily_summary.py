@@ -55,8 +55,9 @@ def main():
         target_date = datetime.now() - timedelta(days=1)
         date_label = "어제"
 
-    # 주말 / 한국 공휴일 / 월요일 처리 (날짜를 직접 지정한 경우에는 건너뜀)
-    if not args.date:
+    # 주말 / 한국 공휴일 / 월요일 처리 (날짜를 직접 지정했거나 --today면 건너뜀)
+    # 이 보정은 예약 실행의 기본 경로("어제" 요약)에만 적용된다.
+    if not args.date and not args.today:
         today = datetime.now()
         weekday_names = ["월", "화", "수", "목", "금", "토", "일"]
 
