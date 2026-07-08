@@ -7,6 +7,9 @@ import re
 import sys
 import json
 import time
+import shutil
+import tempfile
+import subprocess
 import requests
 from datetime import date
 from pathlib import Path
@@ -405,11 +408,8 @@ def save_report(markdown_content, target_date):
     return filepath
 
 
-def summarize_with_gemini(md_content, api_key, slack_context=""):
-    """Gemini API를 사용하여 일일 요약을 5가지 핵심 포인트로 요약"""
-    if not api_key:
-        return None
-
+def _build_summary_prompt(md_content, slack_context=""):
+    """AI 요약 프롬프트를 조립. Gemini/Claude 등 제공자와 무관하게 공유한다."""
     today = date.today().strftime("%Y-%m-%d")
 
     slack_block = ""
@@ -512,6 +512,16 @@ def summarize_with_gemini(md_content, api_key, slack_context=""):
 {slack_block}
 요약:"""
 
+    return prompt
+
+
+def summarize_with_gemini(md_content, api_key, slack_context=""):
+    """Gemini API를 사용하여 일일 요약을 5가지 핵심 포인트로 요약"""
+    if not api_key:
+        return None
+
+    prompt = _build_summary_prompt(md_content, slack_context)
+
     payload = {
         "contents": [{
             "parts": [{
@@ -573,6 +583,104 @@ def summarize_with_gemini(md_content, api_key, slack_context=""):
 
     print("⚠️ Gemini API 요약 실패: 모든 모델/재시도 소진", file=sys.stderr)
     return None
+
+
+def _find_claude_cli():
+    """claude 실행 파일 경로를 해석. cron은 PATH가 좁으므로 여러 후보를 확인한다."""
+    from_env = os.environ.get("CLAUDE_CLI_PATH")
+    if from_env:
+        return from_env
+    found = shutil.which("claude")
+    if found:
+        return found
+    fallback = Path.home() / ".local" / "bin" / "claude"
+    if fallback.exists():
+        return str(fallback)
+    return None
+
+
+# claude CLI를 순수 요약 도구로 격리하기 위한 시스템 프롬프트.
+# 기본 시스템 프롬프트(에이전트 프레이밍)를 대체하여 파일을 읽거나 되묻지 않게 한다.
+_CLAUDE_SUMMARIZER_SYSTEM_PROMPT = (
+    "당신은 텍스트 요약 도구입니다. 입력으로 주어진 리포트 텍스트만 근거로 요약을 작성합니다. "
+    "외부 파일을 읽거나 사용자에게 되묻지 말고, 주어진 텍스트와 지시된 출력 형식만으로 "
+    "즉시 요약 결과를 출력하세요."
+)
+
+
+def summarize_with_claude(md_content, slack_context="", model="haiku"):
+    """claude CLI(-p 비대화 모드)로 일일 요약을 생성. 실패 시 None."""
+    claude_bin = _find_claude_cli()
+    if not claude_bin:
+        print("⚠️ claude CLI를 찾을 수 없습니다 (CLAUDE_CLI_PATH 설정 필요)", file=sys.stderr)
+        return None
+
+    prompt = _build_summary_prompt(md_content, slack_context)
+
+    # 격리 플래그: 프로젝트 CLAUDE.md/스킬/훅/MCP를 로드하지 않고 툴 없이 순수 텍스트 생성만 한다.
+    #  --system-prompt      : 기본(에이전트) 시스템 프롬프트 대체
+    #  --setting-sources "" : CLAUDE.md·skills·plugins·hooks·settings 미로드
+    #  --strict-mcp-config  : --mcp-config 없이 → MCP 서버 전부 비활성
+    #  --tools ""           : 사용 가능한 툴 없음(파일 읽기 등 에이전트 동작 차단)
+    cmd = [
+        claude_bin, "-p",
+        "--model", model,
+        "--system-prompt", _CLAUDE_SUMMARIZER_SYSTEM_PROMPT,
+        "--setting-sources", "",
+        "--strict-mcp-config",
+        "--tools", "",
+    ]
+    # 프로젝트 로컬 설정(.claude, CLAUDE.md, .mcp.json)을 피하려고 중립 디렉토리에서 실행한다.
+    neutral_cwd = tempfile.gettempdir()
+
+    # CLI 호출은 세션 startup/일시 오류가 있을 수 있어 짧은 재시도를 둔다.
+    retry_delays = [15, 30, 60]
+    total_attempts = len(retry_delays) + 1
+    last_error = None
+    for attempt in range(1, total_attempts + 1):
+        try:
+            proc = subprocess.run(
+                cmd,
+                input=prompt,
+                capture_output=True,
+                text=True,
+                timeout=300,
+                cwd=neutral_cwd,
+            )
+            if proc.returncode == 0 and proc.stdout.strip():
+                return proc.stdout.strip()
+            last_error = f"returncode={proc.returncode}, stderr={proc.stderr.strip()[:300]}"
+        except subprocess.TimeoutExpired as e:
+            last_error = f"timeout: {e}"
+        except Exception as e:
+            last_error = e
+
+        if attempt < total_attempts:
+            delay = retry_delays[attempt - 1]
+            print(f"⚠️ claude CLI({model}) 오류 (시도 {attempt}/{total_attempts}), {delay}초 후 재시도... [{last_error}]", file=sys.stderr)
+            time.sleep(delay)
+
+    print(f"⚠️ claude CLI({model}) 요약 실패: {last_error}", file=sys.stderr)
+    return None
+
+
+def summarize_ai(md_content, gemini_api_key="", slack_context=""):
+    """AI_PROVIDER 환경변수로 요약 제공자를 선택.
+
+    Returns:
+        (요약 텍스트 | None, 제공자 라벨)
+    """
+    provider = CONFIG.get("ai_provider", "gemini")
+
+    if provider == "claude":
+        model = CONFIG.get("claude_model", "haiku")
+        return summarize_with_claude(md_content, slack_context=slack_context, model=model), "Claude"
+
+    # 기본: gemini API
+    if not gemini_api_key:
+        print("ℹ️ GEMINI_API_KEY 미설정 — AI 요약 생략 (AI_PROVIDER=claude로 전환 가능)", file=sys.stderr)
+        return None, "Gemini"
+    return summarize_with_gemini(md_content, gemini_api_key, slack_context=slack_context), "Gemini"
 
 
 def parse_ai_summary_sections(text: str) -> dict:

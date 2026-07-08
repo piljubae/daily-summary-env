@@ -65,6 +65,14 @@ CONFIG = {
     # 빈 문자열이면 AI 요약 생략
     "gemini_api_key": "",  # 환경변수 GEMINI_API_KEY 또는 직접 입력
 
+    # AI 요약 제공자 선택 (환경변수 AI_PROVIDER)
+    #   "gemini" (기본) — Gemini API 사용 (GEMINI_API_KEY 필요)
+    #   "claude"        — claude CLI(-p) 사용 (API 키 불필요, 로그인 세션 사용)
+    "ai_provider": os.environ.get("AI_PROVIDER", "gemini").strip().lower(),
+
+    # AI_PROVIDER=claude일 때 사용할 Claude 모델 (환경변수 CLAUDE_MODEL, alias 허용)
+    "claude_model": os.environ.get("CLAUDE_MODEL", "haiku"),
+
     # Jira 설정 (할일 조회용)
     "jira_url": os.environ.get("JIRA_URL", ""),
     "jira_email": os.environ.get("JIRA_EMAIL", ""),
