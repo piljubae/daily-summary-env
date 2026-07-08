@@ -23,7 +23,7 @@ from fetchers import fetch_all
 from formatters import (
     create_markdown_report,
     save_report,
-    summarize_with_gemini,
+    summarize_ai,
     send_to_slack,
     parse_ai_summary_sections,
     create_work_activity_report,
@@ -115,24 +115,20 @@ def main():
     print(f"✅ Work-activity 보고서 저장: {work_activity_path}")
 
     # AI 요약 생성 및 추가
+    # 제공자는 AI_PROVIDER 환경변수로 선택 (기본: gemini API, "claude"로 CLI 전환 가능)
     gemini_api_key = CONFIG.get("gemini_api_key") or os.environ.get("GEMINI_API_KEY", "")
-    ai_summary = None
-    
-    if gemini_api_key:
-        print("🤖 AI 요약 생성 중...")
-        slack_text = data.slack_summary.get("full_text", "") if data.slack_summary else ""
-        ai_summary = summarize_with_gemini(markdown_content, gemini_api_key, slack_context=slack_text)
-        
-        if ai_summary:
-            print("✅ AI 요약 생성 완료!")
-            # MD 파일에 AI 요약 추가
-            with open(filepath, 'a', encoding='utf-8') as f:
-                f.write(f"\n\n---\n\n## 🤖 AI 요약 (Gemini)\n\n{ai_summary}\n")
-            print("✅ AI 요약을 MD 파일에 추가했습니다")
-        else:
-            print("⚠️ AI 요약 생성 실패")
+    print("🤖 AI 요약 생성 중...")
+    slack_text = data.slack_summary.get("full_text", "") if data.slack_summary else ""
+    ai_summary, ai_provider = summarize_ai(markdown_content, gemini_api_key, slack_context=slack_text)
+
+    if ai_summary:
+        print(f"✅ AI 요약 생성 완료! ({ai_provider})")
+        # MD 파일에 AI 요약 추가
+        with open(filepath, 'a', encoding='utf-8') as f:
+            f.write(f"\n\n---\n\n## 🤖 AI 요약 ({ai_provider})\n\n{ai_summary}\n")
+        print("✅ AI 요약을 MD 파일에 추가했습니다")
     else:
-        print("ℹ️ Gemini API Key 미설정 — AI 요약 생략")
+        print("⚠️ AI 요약 생성 실패 또는 생략")
 
     # Slack 전송
     slack_webhook_url = CONFIG.get("slack_webhook_url") or os.environ.get("SLACK_WEBHOOK_URL", "")

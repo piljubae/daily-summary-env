@@ -8,6 +8,8 @@ from .markdown import (
     generate_one_liner,
     save_report,
     summarize_with_gemini,
+    summarize_with_claude,
+    summarize_ai,
     parse_ai_summary_sections,
 )
 from .work_activity import (
@@ -24,6 +26,8 @@ __all__ = [
     'generate_one_liner',
     'save_report',
     'summarize_with_gemini',
+    'summarize_with_claude',
+    'summarize_ai',
     'parse_ai_summary_sections',
     'create_work_activity_report',
     'save_work_activity_report',
