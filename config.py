@@ -97,7 +97,4 @@ CONFIG = {
     # daily/YYYY-MM-DD.md 슬림 파일을 생성한다. 데일리 요약은 그 결과물만 읽는다.
     # 빈 문자열이면 Slack 요약 섹션 생략
     "slack_summary_dir": os.environ.get("SLACK_SUMMARY_DIR", str(Path.home() / "Documents" / "Claude Cowork" / "Slack")),
-
-    # Slack Bot Token — EOD 리포트 DM 전송에 사용
-    "slack_bot_token": os.environ.get("SLACK_BOT_TOKEN", ""),
 }
