@@ -112,6 +112,22 @@ def _get_work_calendar_names() -> list:
     return selected
 
 
+def _ensure_calendar_running():
+    """Calendar.app을 실행 상태로 보장.
+
+    launchd/cron 등 백그라운드 컨텍스트에서 첫 AppleScript 조회 시
+    Calendar.app이 떠 있지 않으면 -600(응용 프로그램이 실행 중이 아닙니다)
+    오류로 조회가 통째로 실패한다. 조회 전에 명시적으로 실행해 방지한다.
+
+    -g: 앱을 앞으로 가져오지 않음(포커스 뺏지 않음), -j: 숨긴 채 실행.
+    UI 창이 화면에 뜨지 않아도 프로세스만 살아있으면 조회는 정상 동작한다.
+    """
+    try:
+        subprocess.run(["open", "-g", "-j", "-a", "Calendar"], capture_output=True, timeout=15)
+    except Exception as e:
+        print(f"⚠️ Calendar.app 실행 시도 실패: {e}", file=sys.stderr)
+
+
 def fetch_calendar_events(target_date: datetime) -> list:
     """macOS 캘린더에서 업무 미팅 이벤트 조회 (AppleScript).
 
@@ -127,6 +143,9 @@ def fetch_calendar_events(target_date: datetime) -> list:
     if not work_calendar_names:
         print("ℹ️ 업무 캘린더가 선택되지 않아 캘린더 조회를 건너뜁니다.", file=sys.stderr)
         return []
+
+    # Calendar.app이 실행 중이 아니면 -600 오류로 실패하므로 먼저 실행 보장
+    _ensure_calendar_running()
 
     # 캘린더 이름 목록을 AppleScript 리스트로 변환
     cal_names_as = "{" + ", ".join(f'"{n}"' for n in work_calendar_names) + "}"
@@ -151,9 +170,12 @@ set workCalNames to {cal_names_as}
 set output to ""
 
 tell application "Calendar"
+    set metaCount to 0
     repeat with calName in workCalNames
         try
             set theCalendar to calendar calName
+            -- 진단용: 대상 캘린더의 전체 이벤트 수 (접근 실패/오설정 감지)
+            set metaCount to metaCount + (count of events of theCalendar)
             set theEvents to (every event of theCalendar whose start date >= dayStart and start date <= dayEnd)
             repeat with e in theEvents
                 set eTitle to summary of e
@@ -172,7 +194,7 @@ tell application "Calendar"
         end try
     end repeat
 end tell
-return output
+return "META|||" & metaCount & "###" & output
 '''
 
     try:
@@ -199,6 +221,37 @@ return output
 
     raw = result.stdout.strip()
     if not raw:
+        # 정상이면 최소 META 헤더가 있어야 한다. 빈 출력 = 접근 실패 가능성.
+        print(
+            "⚠️ 캘린더: 빈 응답 (Calendar 접근 실패 가능). "
+            "시스템 설정 → 개인정보 보호 및 보안 → 자동화/캘린더 권한을 확인하세요.",
+            file=sys.stderr,
+        )
+        return []
+
+    # 진단 헤더(META) 파싱: 대상 캘린더 전체 이벤트 수
+    meta_total = None
+    if raw.startswith("META|||"):
+        head, _, rest = raw[len("META|||"):].partition("###")
+        try:
+            meta_total = int(head.strip())
+        except ValueError:
+            meta_total = None
+        raw = rest.strip()
+
+    # 대상 캘린더에서 이벤트를 하나도 읽지 못함 = 권한/앱 상태/오설정 문제.
+    # (해당 날짜에 일정이 없는 정상 케이스와 구분해 조용히 0으로 묻히지 않게 한다)
+    if meta_total == 0:
+        print(
+            f"⚠️ 캘린더: 업무 캘린더({work_calendar_names})에서 이벤트를 "
+            "하나도 읽지 못했습니다. macOS 자동화/캘린더 접근 권한, "
+            "Calendar.app 실행 상태, 또는 캘린더 이름 설정을 확인하세요.",
+            file=sys.stderr,
+        )
+        return []
+
+    if not raw:
+        # META는 정상(이벤트 존재)이지만 해당 날짜 매칭 0건 = 진짜 일정 없는 날
         return []
 
     exclude_recurring = CONFIG.get("gcal_exclude_recurring", True)
