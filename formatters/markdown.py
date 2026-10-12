@@ -571,9 +571,10 @@ def summarize_with_gemini(md_content, api_key, slack_context=""):
         print(f"⚠️ Gemini API({model}) 요약 실패: {last_error}", file=sys.stderr)
         return None
 
-    # 1순위는 최신 안정 모델(3.5-flash). 503(과부하) 시 한 세대 아래인 2.5-flash로 폴백한다.
+    # 1순위는 환경변수 GEMINI_MODEL(기본 gemini-3.8-flash). 503(과부하) 시 안정 모델 2.5-flash로 폴백한다.
     # 세대가 달라 부하 풀이 분리돼 있고, preview가 아니라 갑자기 폐기될 위험도 없다.
-    models = ("gemini-3.5-flash", "gemini-2.5-flash")
+    primary_model = CONFIG.get("gemini_model", "gemini-3.8-flash")
+    models = (primary_model, "gemini-2.5-flash")
     for i, model in enumerate(models):
         text = _call_model(model)
         if text is not None:

@@ -65,6 +65,10 @@ CONFIG = {
     # 빈 문자열이면 AI 요약 생략
     "gemini_api_key": "",  # 환경변수 GEMINI_API_KEY 또는 직접 입력
 
+    # AI_PROVIDER=gemini일 때 사용할 Gemini 모델 (환경변수 GEMINI_MODEL)
+    # 503(과부하) 시 한 세대 아래 안정 모델로 폴백한다.
+    "gemini_model": os.environ.get("GEMINI_MODEL", "gemini-3.8-flash").strip(),
+
     # AI 요약 제공자 선택 (환경변수 AI_PROVIDER)
     #   "gemini" (기본) — Gemini API 사용 (GEMINI_API_KEY 필요)
     #   "claude"        — claude CLI(-p) 사용 (API 키 불필요, 로그인 세션 사용)
