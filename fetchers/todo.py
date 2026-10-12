@@ -94,10 +94,13 @@ def fetch_today_todos() -> list[dict]:
             f"{base_url}/rest/api/3/search/jql",
             headers=headers,
             json={
+                # statusCategory 기준으로 종료 티켓을 거른다. 완료/Done/Closed/작업취소 등
+                # 모든 종결 상태는 statusCategory=Done으로 묶이므로, 상태명을 일일이
+                # 나열하지 않아도 앞으로 생길 종료 상태까지 한 번에 제외된다.
                 "jql": (
                     f'project = {project_key} AND '
                     f'assignee = currentUser() AND '
-                    f'status NOT IN ("완료", "Done", "Closed", "CLOSE")'
+                    f'statusCategory != Done'
                 ),
                 "maxResults": 50,
                 "fields": ["summary", "status", "priority", "duedate", "updated", "comment"],
